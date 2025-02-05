@@ -7,8 +7,8 @@ This is a simple tool to animate human motion.
 ## Features
 
 - [x] Toon shading follow [Diffutoon](https://ecnu-cilab.github.io/DiffutoonProjectPage/)
-- [ ] Animate human motion by [MimicMotion](https://github.com/Tencent/MimicMotion)
-- [ ] Extract pose by [sapiens](https://github.com/facebookresearch/sapiens)
+- [x] Animate human motion by [MimicMotion](https://github.com/Tencent/MimicMotion)
+- [x] Extract pose by [sapiens](https://github.com/facebookresearch/sapiens)
 - [ ] Fix face by [FaceFusion](https://github.com/facefusion/facefusion)
 - [ ] Consistent character generation with different poses
 - [ ] Pose smoothing
@@ -23,6 +23,9 @@ git submodule update --init --recursive
 conda env create -f envs/toonshading_env.yaml
 # or update the environment
 conda env update -f envs/toonshading_env.yaml
+conda activate toonshading
+bash envs/toonshadingPostBuild.sh
+# Setup PYTHONPATH before running the code
 export PYTHONPATH=$PYTHONPATH:$(pwd)/third_party/MimicMotion
 ```
 

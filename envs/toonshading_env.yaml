@@ -4,6 +4,7 @@ channels:
   - pytorch
   - nvidia
 dependencies:
+  - cuda-toolkit
   - python=3.12.8
   - pytorch=2.5.1
   - torchvision=0.20.1
@@ -19,3 +20,4 @@ dependencies:
     - decord==0.6.0
     - matplotlib
     - onnxruntime
+    - json_tricks

@@ -1,3 +1,6 @@
 [submodule "third_party/MimicMotion"]
 	path = third_party/MimicMotion
 	url = https://github.com/Tencent/MimicMotion.git
+[submodule "third_party/sapiens"]
+	path = third_party/sapiens
+	url = https://github.com/facebookresearch/sapiens.git
