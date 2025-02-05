@@ -6,7 +6,7 @@ This is a simple tool to animate human motion.
 
 ## Features
 
-- [ ] Toon shading follow [Diffutoon](https://ecnu-cilab.github.io/DiffutoonProjectPage/)
+- [x] Toon shading follow [Diffutoon](https://ecnu-cilab.github.io/DiffutoonProjectPage/)
 - [ ] Animate human motion by [MimicMotion](https://github.com/Tencent/MimicMotion)
 - [ ] Extract pose by [sapiens](https://github.com/facebookresearch/sapiens)
 - [ ] Fix face by [FaceFusion](https://github.com/facefusion/facefusion)
