@@ -14,6 +14,26 @@ This is a simple tool to animate human motion.
 - [ ] Pose smoothing
 - [ ] Manual pose editing
 
+## Setup
+
+### Environment setup
+
+```bash
+git submodule update --init --recursive
+conda env create -f envs/toonshading_env.yaml
+# or update the environment
+conda env update -f envs/toonshading_env.yaml
+export PYTHONPATH=$PYTHONPATH:$(pwd)/third_party/MimicMotion
+```
+
+### Download models
+
+```bash
+bash scripts/download_models.sh
+```
+
+
+
 ## References
 
 - [MimicMotion](https://github.com/Tencent/MimicMotion)
