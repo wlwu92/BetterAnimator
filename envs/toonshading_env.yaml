@@ -1,0 +1,15 @@
+name: toonshading
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.12.8
+  - pytorch=2.5.1
+  - torchvision=0.20.1
+  - ffmpeg=4.3
+  - x264
+  - pip
+  - pip:
+    - diffsynth
+    - numpy==1.26.1
