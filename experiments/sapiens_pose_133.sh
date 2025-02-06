@@ -9,16 +9,16 @@ MODE='torchscript' ## original. no optimizations (slow). full precision inferenc
 SAPIENS_CHECKPOINT_ROOT=$SAPIENS_CHECKPOINT_ROOT/$MODE
 
 #----------------------------set your input and output directories----------------------------------------------
-INPUT="$(pwd)/third_party/sapiens/pose/demo/data/itw_videos/reel1"
-OUTPUT="$(pwd)/outputs/sapiens/reel1_pose133"
+# INPUT="$(pwd)/third_party/sapiens/pose/demo/data/itw_videos/reel1"
+# OUTPUT="$(pwd)/outputs/sapiens/reel1_pose133"
+INPUT=$(realpath $1)
+OUTPUT=$(realpath $2)
 
 #--------------------------MODEL CARD---------------
 # MODEL_NAME='sapiens_0.3b'; CHECKPOINT=$SAPIENS_CHECKPOINT_ROOT/pose/checkpoints/sapiens_0.3b/sapiens_0.3b_coco_wholebody_best_coco_wholebody_AP_620_$MODE.pt2
 # MODEL_NAME='sapiens_0.6b'; CHECKPOINT=$SAPIENS_CHECKPOINT_ROOT/pose/checkpoints/sapiens_0.6b/sapiens_0.6b_coco_wholebody_best_coco_wholebody_AP_695_$MODE.pt2
 # MODEL_NAME='sapiens_1b'; CHECKPOINT=$SAPIENS_CHECKPOINT_ROOT/pose/checkpoints/sapiens_1b/sapiens_1b_coco_wholebody_best_coco_wholebody_AP_727_$MODE.pt2
 MODEL_NAME='sapiens_2b'; CHECKPOINT=$SAPIENS_CHECKPOINT_ROOT/pose/checkpoints/sapiens_2b/sapiens_2b_coco_wholebody_best_coco_wholebody_AP_745_$MODE.pt2
-
-OUTPUT=$OUTPUT/$MODEL_NAME
 
 DETECTION_CONFIG_FILE='../pose/demo/mmdetection_cfg/rtmdet_m_640-8xb32_coco-person_no_nms.py'
 DETECTION_CHECKPOINT=$SAPIENS_CHECKPOINT_ROOT/../../rtmdet_m_8xb32-100e_coco-obj365-person-235e8209.pth

@@ -1,4 +1,3 @@
-# Fix following link: https://github.com/open-mmlab/mmdetection/issues/12008#issuecomment-2449327570
 import logging
 
 from mmengine.registry import Registry
