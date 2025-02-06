@@ -24,6 +24,7 @@ conda env create -f envs/toonshading_env.yaml
 # or update the environment
 conda env update -f envs/toonshading_env.yaml
 conda activate toonshading
+# Install sapiens dependencies
 bash envs/toonshadingPostBuild.sh
 # Setup PYTHONPATH before running the code
 export PYTHONPATH=$PYTHONPATH:$(pwd)/third_party/MimicMotion

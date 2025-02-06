@@ -9,6 +9,7 @@ dependencies:
   - pytorch=2.5.1
   - torchvision=0.20.1
   - ffmpeg=4.3
+  - jq
   - x264
   - pip
   - pip:
@@ -21,3 +22,4 @@ dependencies:
     - matplotlib
     - onnxruntime
     - json_tricks
+    - accelerate

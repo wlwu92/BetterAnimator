@@ -35,7 +35,8 @@ RUN_FILE='demo/vis_pose.py'
 # JOBS_PER_GPU=1; TOTAL_GPUS=8; VALID_GPU_IDS=(0 1 2 3 4 5 6 7)
 JOBS_PER_GPU=1; TOTAL_GPUS=1; VALID_GPU_IDS=(0)
 
-BATCH_SIZE=8
+# batch size 1 run faster
+BATCH_SIZE=1
 
 # Find all images and sort them, then write to a temporary text file
 IMAGE_LIST="${INPUT}/image_list.txt"
