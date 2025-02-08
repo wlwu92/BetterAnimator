@@ -43,12 +43,12 @@ def get_pose_parts(pose_array: np.ndarray) -> dict:
     """
     Get the parts of the pose from the pose array.
     """
-    body = pose_array[:18]
+    bodies = pose_array[:18]
     hands = pose_array[92:113]
     hands = np.vstack([hands, pose_array[113:]])
     faces = pose_array[24:92]
     foot = pose_array[18:24]
-    return dict(body=body, hands=hands, faces=faces, foot=foot)
+    return dict(bodies=bodies, hands=hands, faces=faces, foot=foot)
 
 
 def draw_pose_on_image(pose_array: np.ndarray, image: Image.Image, color: tuple | None = None) -> Image.Image:
