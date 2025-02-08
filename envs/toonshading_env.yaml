@@ -13,7 +13,7 @@ dependencies:
   - x264
   - pip
   - pip:
-    - diffsynth
+    - -e git+https://github.com/modelscope/DiffSynth-Studio.git@46d4616e2381412ae1f77e46b5e6383530323c7d#egg=diffsynth
     - numpy==1.26.1
     - omegaconf
     - diffusers==0.27.0

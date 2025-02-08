@@ -3,3 +3,4 @@ data/example_reference/ref_gen
 data/workspace
 outputs/
 **/*/__pycache__
+envs/src
