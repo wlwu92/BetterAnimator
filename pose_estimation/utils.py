@@ -51,7 +51,7 @@ def get_pose_parts(pose_array: np.ndarray) -> dict:
     return dict(bodies=bodies, hands=hands, faces=faces, foot=foot)
 
 
-def draw_pose_on_image(pose_array: np.ndarray, image: Image.Image, color: tuple | None = None) -> Image.Image:
+def draw_pose_on_image(image: Image.Image, pose_array: np.ndarray, color: tuple | None = None) -> Image.Image:
     """
     Draw the pose on the image with color indicating score.
     """

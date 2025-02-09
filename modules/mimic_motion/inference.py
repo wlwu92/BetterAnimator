@@ -10,58 +10,46 @@ from pathlib import Path
 
 import numpy as np
 import torch.jit
+
 from torchvision.datasets.folder import pil_loader
-from torchvision.transforms.functional import pil_to_tensor, resize, center_crop
+from torchvision.transforms.functional import pil_to_tensor, resize
 from torchvision.transforms.functional import to_pil_image
 
-
+# Third party dependencies
 from mimicmotion.utils.geglu_patch import patch_geglu_inplace
 patch_geglu_inplace()
-
-from constants import ASPECT_RATIO
-
 from mimicmotion.pipelines.pipeline_mimicmotion import MimicMotionPipeline
 from mimicmotion.utils.loader import create_pipeline
 from mimicmotion.utils.utils import save_to_mp4
-from mimicmotion.dwpose.preprocess import get_video_pose, get_image_pose
+
+from modules.mimic_motion.preprocess import (
+    load_image_pose, load_video_pose, generate_pose_pixels
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s: [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def preprocess(video_path, image_path, resolution=576, sample_stride=2):
-    """preprocess ref image pose and video pose
-
-    Args:
-        video_path (str): input video pose path
-        image_path (str): reference image path
-        resolution (int, optional):  Defaults to 576.
-        sample_stride (int, optional): Defaults to 2.
-    """
-    image_pixels = pil_loader(image_path)
+def preprocess(video_pose_dir, ref_image_path, ref_pose_path, resolution=576):
+    image_pixels = pil_loader(ref_image_path)
     image_pixels = pil_to_tensor(image_pixels) # (c, h, w)
     h, w = image_pixels.shape[-2:]
-    ############################ compute target h/w according to original aspect ratio ###############################
-    if h>w:
-        w_target, h_target = resolution, int(resolution / ASPECT_RATIO // 64) * 64
-    else:
-        w_target, h_target = int(resolution / ASPECT_RATIO // 64) * 64, resolution
-    h_w_ratio = float(h) / float(w)
-    if h_w_ratio < h_target / w_target:
-        h_resize, w_resize = h_target, math.ceil(h_target / h_w_ratio)
-    else:
-        h_resize, w_resize = math.ceil(w_target * h_w_ratio), w_target
-    image_pixels = resize(image_pixels, [h_resize, w_resize], antialias=None)
-    image_pixels = center_crop(image_pixels, [h_target, w_target])
-    image_pixels = image_pixels.permute((1, 2, 0)).numpy()
-    ##################################### get image&video pose value #################################################
-    image_pose = get_image_pose(image_pixels)
-    video_pose = get_video_pose(video_path, image_pixels, sample_stride=sample_stride)
-    pose_pixels = np.concatenate([np.expand_dims(image_pose, 0), video_pose])
-    image_pixels = np.transpose(np.expand_dims(image_pixels, 0), (0, 3, 1, 2))
-    return torch.from_numpy(pose_pixels.copy()) / 127.5 - 1, torch.from_numpy(image_pixels) / 127.5 - 1
+    new_w, new_h = resolution, int(resolution * h / w)
+    assert new_w % 64 == 0 and new_h % 64 == 0, f"new_w: {new_w}, new_h: {new_h}"
+    image_pixels = resize(image_pixels, [new_h, new_w], antialias=None)
+    image_pixels = image_pixels.permute(1, 2, 0).numpy()
+    image_pixels = np.transpose(image_pixels, (0, 3, 1, 2))
+    image_pixels = torch.from_numpy(image_pixels) / 127.5 - 1
 
+    image_pose = load_image_pose(ref_pose_path)
+    video_poses = load_video_pose(video_pose_dir)
+    pose_pixels = generate_pose_pixels(
+        video_poses, image_pose, width=new_w, height=new_h,
+        ref_scale=new_h / h
+    )
+    pose_pixels = torch.from_numpy(pose_pixels) / 127.5 - 1
+    return image_pixels, pose_pixels
 
 def run_pipeline(pipeline: MimicMotionPipeline, image_pixels, pose_pixels, device, task_config):
     image_pixels = [to_pil_image(img.to(torch.uint8)) for img in (image_pixels + 1.0) * 127.5]
@@ -91,13 +79,10 @@ def main(args):
 
     infer_config = OmegaConf.load(args.inference_config)
     pipeline = create_pipeline(infer_config, device)
-
+    import pdb; pdb.set_trace()
     for task in infer_config.test_case:
         ############################################## Pre-process data ##############################################
-        pose_pixels, image_pixels = preprocess(
-            task.ref_video_path, task.ref_image_path, 
-            resolution=task.resolution, sample_stride=task.sample_stride
-        )
+        image_pixels, pose_pixels = preprocess(task.video_pose_dir, task.ref_image_path, task.ref_pose_path, task.resolution)
         ########################################### Run MimicMotion pipeline ###########################################
         _video_frames = run_pipeline(
             pipeline, 
