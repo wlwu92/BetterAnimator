@@ -105,11 +105,31 @@ def get_crop_bbox(
     return x, y, x + w, y + h
 
 def hand_repair(image_path: str, pose_path: str, output_path: str) -> None:
+    negative_prompt = "ng_deepnegative_v1_75t,(badhandv4:1.2),EasyNegative,(worst quality:2),"
     # Load image and pose
     image = Image.open(image_path)
-    pose = load_pose(pose_path)
-    pose = to_openpose_format(pose)
     name = os.path.basename(image_path).split('.')[0]
+    
+    if inpaint_pipe is None:
+        load_inpaint_pipe()
+    height = image.height
+    scale = 1536 / height
+    assert int(image.width * scale) % 64 == 0
+    image = image.resize((int(image.width * scale), 1536))
+    image = inpaint_pipe(
+        prompt="",
+        negative_prompt=negative_prompt,
+        input_image=image,
+        num_inference_steps=20,
+        denoising_strength=0.3,
+        height=image.height,
+        width=image.width,
+        seed=0
+    )
+    image.save(os.path.join(output_path, f"{name}_deblur.png"))
+    pose = load_pose(pose_path)
+    pose[:, :2] *= scale
+    pose = to_openpose_format(pose)
     pose_parts = get_pose_parts(pose)
 
     # Draw hands on image
@@ -137,24 +157,34 @@ def hand_repair(image_path: str, pose_path: str, output_path: str) -> None:
     crop_mask.save(os.path.join(output_path, f"{name}_crop_mask.png"))
 
     # Inpaint hands
-    if inpaint_pipe is None:
-        load_inpaint_pipe()
     inpainted_image = inpaint_pipe(
         prompt="",
+        negative_prompt=negative_prompt,
         input_image=crop_image,
         local_prompts=["Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",],
         masks=[crop_mask.convert('RGB'),],
         mask_scales=[2.0],
         num_inference_steps=20,
-        denoising_strength=0.3,
+        denoising_strength=0.5,
         height=crop_image.height,
         width=crop_image.width,
-        seed=-1
+        seed=0
     )
     inpainted_image.save(os.path.join(output_path, f"{name}_inpainted_image.png"))
     # Save image
     dst_image = image.copy()
     dst_image.paste(inpainted_image, bbox)
+    dst_image.save(os.path.join(output_path, f"{name}_paste.png"))
+    dst_image = inpaint_pipe(
+        prompt="",
+        negative_prompt=negative_prompt,
+        input_image=dst_image,
+        num_inference_steps=20,
+        denoising_strength=0.3,
+        height=dst_image.height,
+        width=dst_image.width,
+        seed=0
+    )
     dst_image.save(os.path.join(output_path, f"{name}.png"))
 
 def main(): 
