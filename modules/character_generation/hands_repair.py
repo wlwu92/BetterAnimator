@@ -1,5 +1,3 @@
-import argparse
-import logging
 import os
 
 from PIL import Image, ImageDraw
@@ -8,9 +6,6 @@ import numpy as np
 import cv2
 
 from image_generation.flux import flux_pipe
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 inpaint_pipe = None
 def load_inpaint_pipe():
@@ -104,18 +99,19 @@ def get_crop_bbox(
         y = height - h
     return x, y, x + w, y + h
 
-def hand_repair(image_path: str, pose_path: str, output_path: str) -> None:
+def hands_repair(image_path: str, pose_path: str, output_path: str, target_height: int = 1536) -> None:
     negative_prompt = "ng_deepnegative_v1_75t,(badhandv4:1.2),EasyNegative,(worst quality:2),"
     # Load image and pose
     image = Image.open(image_path)
     name = os.path.basename(image_path).split('.')[0]
     
+    height = image.height
+    scale_h = target_height / height
+    target_width = int(image.width * scale_h) // 16 * 16
+    scale_w = target_width / image.width
+    image = image.resize((target_width, target_height))
     if inpaint_pipe is None:
         load_inpaint_pipe()
-    height = image.height
-    scale = 1536 / height
-    assert int(image.width * scale) % 64 == 0
-    image = image.resize((int(image.width * scale), 1536))
     image = inpaint_pipe(
         prompt="",
         negative_prompt=negative_prompt,
@@ -128,7 +124,8 @@ def hand_repair(image_path: str, pose_path: str, output_path: str) -> None:
     )
     image.save(os.path.join(output_path, f"{name}_deblur.png"))
     pose = load_pose(pose_path)
-    pose[:, :2] *= scale
+    pose[:, 0] *= scale_w
+    pose[:, 1] *= scale_h
     pose = to_openpose_format(pose)
     pose_parts = get_pose_parts(pose)
 
@@ -186,33 +183,3 @@ def hand_repair(image_path: str, pose_path: str, output_path: str) -> None:
         seed=0
     )
     dst_image.save(os.path.join(output_path, f"{name}.png"))
-
-def main(): 
-    parser = argparse.ArgumentParser(description="Process image and pose paths.")
-    parser.add_argument('image_path', type=str, help='Image path or image directory')
-    parser.add_argument('pose_path', type=str, help='Pose path or pose directory')
-    parser.add_argument('output_dir', type=str, help='Path to the output file')
-    args = parser.parse_args()
-    
-    if os.path.isdir(args.image_path):
-        image_list = [os.path.join(args.image_path, f) for f in os.listdir(args.image_path) if f.endswith('.jpg') or f.endswith('.png')]
-        image_list.sort()
-    else:
-        image_list = [args.image_path]
-    if os.path.isdir(args.pose_path):
-        pose_list = [os.path.join(args.pose_path, f) for f in os.listdir(args.pose_path) if f.endswith('.json')]
-        pose_list.sort()
-    else:
-        pose_list = [args.pose_path]
-    if len(image_list) != len(pose_list):
-        logger.error("The number of image paths and pose paths must match.")
-        return
-    
-    logger.info(f"Processing {len(image_list)} images, save to {args.output_dir}")
-    os.makedirs(args.output_dir, exist_ok=True)
-    for image_path, pose_path in zip(image_list, pose_list):
-        logger.info(f"Processing image: {image_path} and pose: {pose_path}")
-        hand_repair(image_path, pose_path, args.output_dir)
-
-if __name__ == "__main__":
-    main()

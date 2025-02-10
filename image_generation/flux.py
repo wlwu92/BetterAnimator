@@ -1,6 +1,10 @@
 from PIL import Image
 import torch
 
+from diffusers import FluxFillPipeline
+from diffusers.utils import load_image
+
+# Change to diffusers pipeline
 from diffsynth import (
     ModelManager,
     FluxImagePipeline,
@@ -74,3 +78,9 @@ def flux_pipe(
             pipe.load_lora(lora_name)
     return pipe
 
+def flux_fill_pipe():
+    pipe = FluxFillPipeline.from_pretrained(
+        "models/FLUX/FLUX.1-Fill-dev",
+        torch_dtype=torch.bfloat16
+    )
+    return pipe

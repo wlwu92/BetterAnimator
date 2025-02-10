@@ -23,3 +23,5 @@ dependencies:
     - onnxruntime
     - json_tricks
     - accelerate
+    - ultralytics==8.3.68
+    - click==8.1.8
