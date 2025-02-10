@@ -18,6 +18,8 @@ This is a simple tool to animate human motion.
 
 ### Environment setup
 
+#### Linux
+
 ```bash
 git submodule update --init --recursive
 conda env create -f envs/toonshading_env.yaml
@@ -29,6 +31,18 @@ bash envs/toonshadingPostBuild.sh
 # Setup PYTHONPATH before running the code
 export PYTHONPATH=$PYTHONPATH:$(pwd)/third_party/MimicMotion
 ```
+
+#### MacOS
+
+```bash
+git submodule update --init --recursive
+conda env create -f envs/toonshading_osx_env.yaml
+conda activate toonshading
+```
+* [diffusers](https://github.com/huggingface/diffusers) runs slowly(12 mins for 1 image with gguf Q4_K_S).
+* [mflux](https://github.com/filipstrand/mflux) has alot of limitations
+    * only support text-to-image, image-to-image, controlnet(canny only) generation
+* Waiting for mflux to support controlnet, inpaint and more features.
 
 ### Download models
 

@@ -1,0 +1,22 @@
+name: toonshading
+channels:
+  - conda-forge
+  - pytorch
+
+dependencies:
+  - python=3.12.8
+  - pytorch=2.3.1
+  - torchvision
+  - ffmpeg=4.3
+  - jq
+  - x264
+  - pip
+  - pip:
+    - omegaconf
+    - huggingface-hub==0.25.1
+    - json_tricks
+    - accelerate
+    - mflux
+    - diffusers>=0.31.0
+    - protobuf==3.20.3
+    - gguf>=0.10.0
