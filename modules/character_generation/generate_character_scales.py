@@ -15,11 +15,13 @@ reference_scales_params = {
     "x3": [55, 15]
 }
 
+MULTI_DEVICE_INFERENCE = os.environ.get("MULTI_DEVICE_INFERENCE", "0") == "1"
+
 PROMPT = "Consistant background, a woman in standing in a simple color background. The background is a simple off-white color that acts as a neutral canvas,ensuring that the focus remains on her posture and presence. The overall image style is clean and modern,with a focus on fitness and an active lifestyle"
 outpaint_pipe = None
 def load_outpaint_pipe():
     global outpaint_pipe
-    outpaint_pipe = flux_fill_pipe()
+    outpaint_pipe = flux_fill_pipe(enable_multi_gpu=MULTI_DEVICE_INFERENCE)
 
 def image_detect_one_object(image_path: str) -> Results:
     model = YOLO("models/yolo11n-pose.pt")
@@ -133,7 +135,7 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
             height=image.height,
             width=image.width,
             guidance_scale=30,
-            num_inference_steps=50,
+            num_inference_steps=5,
             max_sequence_length=512,
             generator=torch.Generator("cpu").manual_seed(0),
         ).images[0]

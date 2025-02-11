@@ -21,6 +21,9 @@ flux_pipeline_info_map = {
     "flux_fill": "models/FLUX/FLUX.1-Fill-dev",
 }
 
+class MockFluxPipelineOutput:
+    def __init__(self, image):
+        self.images = [image]
 
 class MultiDevicePipelineBase:
     def __init__(self, pipeline_type: str = "flux", lora_name: str = ""):
@@ -50,7 +53,7 @@ class MultiDevicePipelineBase:
                 self._transformer.load_lora_weights(self.lora_name)
         return self._transformer
 
-    def __call__(self, *args: Image.Any, **kwds: Image.Any) -> Image.Any:
+    def __call__(self, *args: Image.Any, **kwds: Image.Any) -> list[Image.Image]:
         raise NotImplementedError("This method should be implemented by the subclass.")
 
     def _decode_latents(
@@ -58,16 +61,16 @@ class MultiDevicePipelineBase:
         latents: torch.Tensor,
         width: int,
         height: int,
-    ) -> Image.Image:
+    ) -> MockFluxPipelineOutput:
         vae = self.vae("cuda")
         vae_scale_factor = 2 ** (len(vae.config.block_out_channels) - 1)
         image_processor = VaeImageProcessor(vae_scale_factor=vae_scale_factor * 2)
         with torch.no_grad():
             latents = FluxPipeline._unpack_latents(latents, height, width, vae_scale_factor)
             latents = (latents / vae.config.scaling_factor) + vae.config.shift_factor
-            image = vae.decode(latents, return_dict=False)[0]
+            image = vae.decode(latents.to("cuda"), return_dict=False)[0]
             image = image_processor.postprocess(image, output_type="pil")[0]
-        return image
+        return MockFluxPipelineOutput(image)
 
 
 class MultiDeviceFluxPipeline(MultiDevicePipelineBase):
@@ -83,7 +86,7 @@ class MultiDeviceFluxPipeline(MultiDevicePipelineBase):
         guidance_scale: float = 3.5,
         max_sequence_length: int = 512,
         generator: torch.Generator = None,
-    ) -> Image.Image:
+    ) -> MockFluxPipelineOutput:
         prompt_embeds, pooled_prompt_embeds, text_ids = self._encode_prompt(
             prompt,
             max_sequence_length,
@@ -156,7 +159,7 @@ class MultiDeviceFluxPipeline(MultiDevicePipelineBase):
             output_type="latent",
             generator=generator,
         ).images
-        del self._transformer
+        self._transformer = None
         del pipeline
         flush()
         return latents 
@@ -176,7 +179,7 @@ class MultiDeviceFluxFillPipeline(MultiDevicePipelineBase):
         guidance_scale: float = 3.5,
         max_sequence_length: int = 512,
         generator: torch.Generator = None,
-    ) -> Image.Image:
+    ) -> MockFluxPipelineOutput:
         prompt_embeds, pooled_prompt_embeds, text_ids, masked_image_latents = \
             self._encode_prompt_and_prepare_mask_latents(
                 prompt,
@@ -284,7 +287,7 @@ class MultiDeviceFluxFillPipeline(MultiDevicePipelineBase):
             masked_image_latents=masked_image_latents,
             generator=generator,
         ).images
-        del self._transformer
+        self._transformer = None
         del pipeline
         flush()
         return latents

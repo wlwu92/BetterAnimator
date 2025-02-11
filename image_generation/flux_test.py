@@ -20,7 +20,6 @@ class TestFluxPipeline(unittest.TestCase):
     def test_flux_fill_pipe(self):
         pipe = flux_fill_pipe()
         image = Image.open("data/example_reference/ref.png")
-        print(image.size)
         mask = Image.new("L", image.size, 255)
         mask_draw = ImageDraw.Draw(mask)
         mask_draw.rectangle([
