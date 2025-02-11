@@ -5,10 +5,12 @@ import gc
 from diffusers import (
     FluxPipeline,
     FluxFillPipeline,
+    FluxImg2ImgPipeline,
     AutoencoderKL,
-    FluxTransformer2DModel,
+    FluxTransformer2DModel
 )
 from diffusers.image_processor import VaeImageProcessor
+from diffusers.pipelines.flux.pipeline_output import FluxPipelineOutput
 
 def flush():
     gc.collect()
@@ -18,12 +20,9 @@ def flush():
 
 flux_pipeline_info_map = {
     "flux": "models/FLUX/FLUX.1-dev",
+    "flux_img2img": "models/FLUX/FLUX.1-dev",
     "flux_fill": "models/FLUX/FLUX.1-Fill-dev",
 }
-
-class MockFluxPipelineOutput:
-    def __init__(self, image):
-        self.images = [image]
 
 class MultiDevicePipelineBase:
     def __init__(self, pipeline_type: str = "flux", lora_name: str = ""):
@@ -61,7 +60,7 @@ class MultiDevicePipelineBase:
         latents: torch.Tensor,
         width: int,
         height: int,
-    ) -> MockFluxPipelineOutput:
+    ) -> FluxPipelineOutput:
         vae = self.vae("cuda")
         vae_scale_factor = 2 ** (len(vae.config.block_out_channels) - 1)
         image_processor = VaeImageProcessor(vae_scale_factor=vae_scale_factor * 2)
@@ -70,7 +69,7 @@ class MultiDevicePipelineBase:
             latents = (latents / vae.config.scaling_factor) + vae.config.shift_factor
             image = vae.decode(latents.to("cuda"), return_dict=False)[0]
             image = image_processor.postprocess(image, output_type="pil")[0]
-        return MockFluxPipelineOutput(image)
+        return FluxPipelineOutput(images=[image])
 
 
 class MultiDeviceFluxPipeline(MultiDevicePipelineBase):
@@ -86,7 +85,7 @@ class MultiDeviceFluxPipeline(MultiDevicePipelineBase):
         guidance_scale: float = 3.5,
         max_sequence_length: int = 512,
         generator: torch.Generator = None,
-    ) -> MockFluxPipelineOutput:
+    ) -> FluxPipelineOutput:
         prompt_embeds, pooled_prompt_embeds, text_ids = self._encode_prompt(
             prompt,
             max_sequence_length,
@@ -164,9 +163,105 @@ class MultiDeviceFluxPipeline(MultiDevicePipelineBase):
         flush()
         return latents 
 
+class MultiDeviceFluxImg2ImgPipeline(MultiDevicePipelineBase):
+    def __init__(self, lora_name: str = ""):
+        super().__init__(pipeline_type="flux_img2img", lora_name=lora_name)
+
+    def __call__(
+        self,
+        prompt: str,
+        image: Image.Image,
+        height: int,
+        width: int,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 3.5,
+        max_sequence_length: int = 512,
+        generator: torch.Generator = None,
+    ) -> FluxPipelineOutput:
+        prompt_embeds, pooled_prompt_embeds, text_ids = self._encode_prompt(
+            prompt,
+            max_sequence_length,
+        )
+        latents = self._denoise(
+            prompt_embeds=prompt_embeds,
+            pooled_prompt_embeds=pooled_prompt_embeds,
+            image=image,
+            height=height,
+            width=width,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            generator=generator,
+        )
+        return self._decode_latents(latents, width, height)
+
+    def _encode_prompt(
+        self,
+        prompt: str,
+        max_sequence_length: int = 512,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        pipeline = FluxImg2ImgPipeline.from_pretrained(
+            self.model_name,
+            transformer=None,
+            vae=None,
+            device_map="balanced",
+            max_memory={0: "16GB", 1: "16GB"},
+            torch_dtype=torch.bfloat16,
+        )
+        with torch.no_grad():
+            prompt_embeds, pooled_prompt_embeds, text_ids = pipeline.encode_prompt(
+                prompt=prompt,
+                prompt_2=None,
+                max_sequence_length=max_sequence_length,
+            )
+        del pipeline.text_encoder
+        del pipeline.text_encoder_2
+        del pipeline.tokenizer
+        del pipeline.tokenizer_2
+        del pipeline
+        flush()
+        return prompt_embeds, pooled_prompt_embeds, text_ids
+
+    def _denoise(
+        self,
+        prompt_embeds: torch.Tensor,
+        pooled_prompt_embeds: torch.Tensor,
+        image: Image.Image,
+        height: int,
+        width: int,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 3.5,
+        generator: torch.Generator = None,
+    ) -> torch.Tensor:
+        pipeline = FluxImg2ImgPipeline.from_pretrained(
+            self.model_name,
+            text_encoder=None,
+            text_encoder_2=None,
+            tokenizer=None,
+            tokenizer_2=None,
+            vae=self.vae("cuda"),
+            transformer=self.transformer(),
+            torch_dtype=torch.bfloat16,
+        )
+        latents = pipeline(
+            prompt_embeds=prompt_embeds,
+            pooled_prompt_embeds=pooled_prompt_embeds,
+            image=image,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            height=height,
+            width=width,
+            output_type="latent",
+            generator=generator,
+        ).images
+        self._transformer = None
+        del pipeline
+        flush()
+        return latents 
+
+
 class MultiDeviceFluxFillPipeline(MultiDevicePipelineBase):
-    def __init__(self):
-        super().__init__(pipeline_type="flux_fill")
+    def __init__(self, lora_name: str = ""):
+        super().__init__(pipeline_type="flux_fill", lora_name=lora_name)
 
     def __call__(
         self,
@@ -179,7 +274,7 @@ class MultiDeviceFluxFillPipeline(MultiDevicePipelineBase):
         guidance_scale: float = 3.5,
         max_sequence_length: int = 512,
         generator: torch.Generator = None,
-    ) -> MockFluxPipelineOutput:
+    ) -> FluxPipelineOutput:
         prompt_embeds, pooled_prompt_embeds, text_ids, masked_image_latents = \
             self._encode_prompt_and_prepare_mask_latents(
                 prompt,
@@ -306,13 +401,26 @@ def flux_pipe(lora_name: str = "", enable_multi_gpu: bool = False) -> FluxPipeli
     return pipe
 
 
-def flux_fill_pipe(enable_multi_gpu: bool = False) -> FluxFillPipeline:
+def flux_img2img_pipe(lora_name: str = "", enable_multi_gpu: bool = False) -> FluxImg2ImgPipeline:
     if enable_multi_gpu:
-        return MultiDeviceFluxFillPipeline()
+        return MultiDeviceFluxImg2ImgPipeline(lora_name=lora_name)
+    pipe = FluxImg2ImgPipeline.from_pretrained(
+        "models/FLUX/FLUX.1-dev",
+        torch_dtype=torch.bfloat16,
+    )
+    if lora_name:
+        pipe.load_lora_weights(lora_name)
+    pipe.enable_model_cpu_offload()
+    return pipe
 
+def flux_fill_pipe(lora_name: str = "", enable_multi_gpu: bool = False) -> FluxFillPipeline:
+    if enable_multi_gpu:
+        return MultiDeviceFluxFillPipeline(lora_name=lora_name)
     pipe = FluxFillPipeline.from_pretrained(
         "models/FLUX/FLUX.1-Fill-dev",
         torch_dtype=torch.bfloat16,
     )
+    if lora_name:
+        pipe.load_lora_weights(lora_name)
     pipe.enable_model_cpu_offload()
     return pipe
