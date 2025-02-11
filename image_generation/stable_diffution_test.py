@@ -25,7 +25,8 @@ class TestImageGeneration(unittest.TestCase):
             eta=0.0,
         ).images[0]
         image.save("outputs/test_img2img.png")
-
+        
+    def test_controlnet(self):
         input_image = Image.open("data/example_reference/ref.png")
         controlnet_pipe = sd_controlnet_pipe(
             "./models/stable_diffusion/aingdiffusion_v12.safetensors",

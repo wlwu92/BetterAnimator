@@ -7,6 +7,7 @@ from diffusers import (
     StableDiffusionImg2ImgPipeline,
     StableDiffusionControlNetPipeline,
     ControlNetModel,
+    UniPCMultistepScheduler
 )
 from huggingface_hub import snapshot_download
 
@@ -28,22 +29,26 @@ def _get_controlnet_model(control_unit: str) -> ControlNetModel:
         )
     model = ControlNetModel.from_single_file(
         model_path,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float16,
     )
     return model
 
 def sd_text2img_pipe(model_path: str) -> StableDiffusionPipeline:
     pipe = StableDiffusionPipeline.from_single_file(
         model_path,
-        torch_dtype=torch.bfloat16,
-    ).to(device())
+        torch_dtype=torch.float16,
+    )
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.enable_model_cpu_offload()
     return pipe
 
 def sd_img2img_pipe(model_path: str) -> StableDiffusionImg2ImgPipeline:
     pipe = StableDiffusionImg2ImgPipeline.from_single_file(
         model_path,
-        torch_dtype=torch.bfloat16,
-    ).to(device())
+        torch_dtype=torch.float16,
+    )
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.enable_model_cpu_offload()
     return pipe
 
 
@@ -54,7 +59,9 @@ def sd_controlnet_pipe(model_path: str, control_units: List[str]) -> StableDiffu
     ]
     pipe = StableDiffusionControlNetPipeline.from_single_file(
         model_path,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float16,
         controlnet=controlnets,
-    ).to(device())
+    )
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.enable_model_cpu_offload()
     return pipe
