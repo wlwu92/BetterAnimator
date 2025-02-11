@@ -99,7 +99,7 @@ def get_crop_bbox(
         y = height - h
     return x, y, x + w, y + h
 
-def hands_repair(image_path: str, pose_path: str, output_path: str, target_height: int = 1536) -> None:
+def repair_hands(image_path: str, pose_path: str, output_path: str, target_height: int = 1536) -> None:
     negative_prompt = "ng_deepnegative_v1_75t,(badhandv4:1.2),EasyNegative,(worst quality:2),"
     # Load image and pose
     image = Image.open(image_path)

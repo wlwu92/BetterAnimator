@@ -6,8 +6,8 @@ import shutil
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-from modules.character_generation.hands_repair import hands_repair
-from modules.character_generation.scales_generation import generate_character_scales
+from modules.character_generation.repair_hands import repair_hands
+from modules.character_generation.generate_character_scales import generate_character_scales
 
 WORKSPACE_DIR = "data/workspace/"
 CHARACTER_DIR = os.path.join(WORKSPACE_DIR, "characters")
@@ -59,7 +59,7 @@ def repair(image_path, pose_path, output_dir, target_height):
     os.makedirs(output_dir, exist_ok=True)
     for image_path, pose_path in zip(image_list, pose_list):
         logger.info(f"Processing image: {image_path} and pose: {pose_path}")
-        hands_repair(image_path, pose_path, output_dir, target_height)
+        repair_hands(image_path, pose_path, output_dir, target_height)
 
 if __name__ == "__main__":
     main()

@@ -97,18 +97,18 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
             return value
         return None 
         
-
     if image_bbox[0] > 0 or image_bbox[1] > 0 or image_bbox[2] < image.size[0] or image_bbox[3] < image.size[1]:
         masked_bbox = (image_bbox + object_bbox) / 2
         masked_bbox = np.round(masked_bbox).astype(int)
-        if masked_bbox[0] - image_bbox[0] > 36:
-            masked_bbox[0] = image_bbox[0] + 36
-        if masked_bbox[1] - image_bbox[1] > 64:
-            masked_bbox[1] = image_bbox[1] + 64
-        if image_bbox[2] - masked_bbox[2] > 36:
-            masked_bbox[2] = image_bbox[2] - 36
-        if image_bbox[3] - masked_bbox[3] > 64:
-            masked_bbox[3] = image_bbox[3] - 64
+        min_gap_x, min_gap_y = 36, 64
+        if masked_bbox[0] - image_bbox[0] > min_gap_x:
+            masked_bbox[0] = image_bbox[0] + min_gap_x
+        if masked_bbox[1] - image_bbox[1] > min_gap_y:
+            masked_bbox[1] = image_bbox[1] + min_gap_y
+        if image_bbox[2] - masked_bbox[2] > min_gap_x:
+            masked_bbox[2] = image_bbox[2] - min_gap_x
+        if image_bbox[3] - masked_bbox[3] > min_gap_y:
+            masked_bbox[3] = image_bbox[3] - min_gap_y
         for i in range(4):
             for div in [16, 8, 4]:
                 value = _fit_to(masked_bbox[i], image_bbox[i], object_bbox[i], div)
@@ -125,15 +125,7 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
         
         if outpaint_pipe is None:
             load_outpaint_pipe()
-        # Debug only
-        origin_size = image.size
-        # image = image.resize((384, 720))
-        # mask = mask.resize((384, 720))
-        # grow_and_blur_mask
-        # mask.save("outputs/mask.png")
         mask = mask.filter(ImageFilter.GaussianBlur(radius=5))
-        # mask.save("outputs/blurred_mask.png")
-        # image.save("outputs/image.png")
         outpainted_image = outpaint_pipe(
             prompt=PROMPT,
             input_image=image,
@@ -146,9 +138,6 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
             generator=torch.Generator("cpu").manual_seed(0),
             seed=0
         )
-        outpainted_image.save("outputs/outpainted_image.png")
-        # outpainted_image = outpainted_image.resize(origin_size)
-        # mask = mask.resize(origin_size)
         return outpainted_image, mask
 
     return image, None
