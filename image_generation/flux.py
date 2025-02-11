@@ -1,7 +1,9 @@
 from PIL import Image
 import torch
 
-from diffusers import FluxFillPipeline
+from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig, FluxTransformer2DModel, FluxFillPipeline
+from transformers import BitsAndBytesConfig as BitsAndBytesConfig, T5EncoderModel
+
 from diffusers.utils import load_image
 
 # Change to diffusers pipeline
@@ -82,5 +84,6 @@ def flux_fill_pipe():
     pipe = FluxFillPipeline.from_pretrained(
         "models/FLUX/FLUX.1-Fill-dev",
         torch_dtype=torch.bfloat16
-    )
+    ).to("cuda")
+    pipe.enable_model_cpu_offload()
     return pipe

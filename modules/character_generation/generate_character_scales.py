@@ -128,7 +128,7 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
         mask = mask.filter(ImageFilter.GaussianBlur(radius=5))
         outpainted_image = outpaint_pipe(
             prompt=PROMPT,
-            input_image=image,
+            image=image,
             mask_image=mask.convert("RGB"),
             height=image.height,
             width=image.width,
@@ -136,8 +136,10 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
             num_inference_steps=50,
             max_sequence_length=512,
             generator=torch.Generator("cpu").manual_seed(0),
-            seed=0
-        )
+        ).images[0]
+        outpainted_image.save("outputs/outpainted_image.png")
+        # outpainted_image = outpainted_image.resize(origin_size)
+        # mask = mask.resize(origin_size)
         return outpainted_image, mask
 
     return image, None

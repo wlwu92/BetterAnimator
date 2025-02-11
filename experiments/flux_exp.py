@@ -72,8 +72,8 @@ def flux_inpaint_generate_image():
         prompt=prompt,
         local_prompts=["Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",],
         masks=[mask,], mask_scales=[2.0],
-        denoising_strength=0.3,
-        num_inference_steps=30,
+        denoising_strength=0.4,
+        num_inference_steps=20,
         input_image=image,
         height=640, width=384,
         seed=-1
