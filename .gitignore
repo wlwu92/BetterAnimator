@@ -4,3 +4,5 @@ data/workspace
 outputs/
 **/*/__pycache__
 envs/src
+.DS_Store
+.vscode

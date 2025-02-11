@@ -17,6 +17,7 @@ dependencies:
     - json_tricks
     - accelerate
     - mflux
-    - diffusers>=0.31.0
+    - diffusers==0.32.2
     - protobuf==3.20.3
     - gguf>=0.10.0
+    - peft
