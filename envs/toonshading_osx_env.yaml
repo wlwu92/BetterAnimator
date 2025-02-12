@@ -21,3 +21,4 @@ dependencies:
     - protobuf==3.20.3
     - gguf>=0.10.0
     - peft
+    - pytest

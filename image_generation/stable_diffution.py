@@ -6,8 +6,10 @@ from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
     StableDiffusionControlNetPipeline,
+    StableDiffusionControlNetImg2ImgPipeline,
     ControlNetModel,
-    UniPCMultistepScheduler
+    UniPCMultistepScheduler,
+    DDIMScheduler,
 )
 from huggingface_hub import snapshot_download
 
@@ -69,6 +71,33 @@ def sd_controlnet_pipe(model_path: str, control_units: List[str]) -> StableDiffu
         controlnet=controlnets,
     )
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    if DEVICE == "mps":
+        pipe.to(DEVICE)
+    else:
+        pipe.enable_model_cpu_offload()
+    return pipe
+
+    
+def sd_controlnet_img2img_pipe(
+    model_path: str,
+    control_units: List[str],
+    textual_inversion_path: str = None,
+) -> StableDiffusionControlNetPipeline:
+    controlnets = [
+        _get_controlnet_model(unit)
+        for unit in control_units
+    ]
+    pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
+        model_path,
+        torch_dtype=torch.float16,
+        controlnet=controlnets,
+    )
+    if textual_inversion_path is not None:
+        pipe.load_textual_inversion(
+            textual_inversion_path,
+        )
+    # Support different scheduler
+    pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
     if DEVICE == "mps":
         pipe.to(DEVICE)
     else:
