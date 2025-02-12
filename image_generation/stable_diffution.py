@@ -10,8 +10,12 @@ from diffusers import (
     ControlNetModel,
     UniPCMultistepScheduler,
     DDIMScheduler,
+    CogVideoXDDIMScheduler,
+    FlaxDDIMScheduler,
 )
 from huggingface_hub import snapshot_download
+
+from diffsynth import ModelManager, SDImagePipeline, ControlNetConfigUnit
 
 from common.constant import HUGGINGFACE_CACHE_DIR, DEVICE
 
@@ -98,8 +102,38 @@ def sd_controlnet_img2img_pipe(
         )
     # Support different scheduler
     pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
+    
     if DEVICE == "mps":
         pipe.to(DEVICE)
     else:
         pipe.enable_model_cpu_offload()
+    return pipe
+
+# Since sd_controlnet_img2img_pipe is not aligned with the diffsynth pipeline,
+# we need to use the following function to do toon shading now.
+def sd_controlnet_img2img_pipe_v2(
+    model_path: str,
+    control_units: List[str],
+    textual_inversion_path: str = None,
+) -> StableDiffusionControlNetPipeline:
+    file_path_list = [
+        model_path,
+        *[CONTROLNET_MODELS[unit] for unit in control_units],
+    ]
+    model_manager = ModelManager(
+        torch_dtype=torch.float16,
+        device=DEVICE,
+        file_path_list=file_path_list,
+    )
+    pipe = SDImagePipeline.from_model_manager(
+        model_manager,
+        controlnet_config_units=[
+            ControlNetConfigUnit(
+                processor_id=unit,
+                model_path=CONTROLNET_MODELS[unit],
+                scale=0.5,
+            )
+            for unit in control_units
+        ],
+    )
     return pipe

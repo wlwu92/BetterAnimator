@@ -7,6 +7,7 @@ from image_generation.stable_diffution import (
     sd_img2img_pipe,
     sd_controlnet_pipe,
     sd_controlnet_img2img_pipe,
+    sd_controlnet_img2img_pipe_v2,
 )
 
 class TestImageGeneration(unittest.TestCase):
@@ -55,7 +56,7 @@ class TestImageGeneration(unittest.TestCase):
             textual_inversion_path="./models/textual_inversion/verybadimagenegative_v1.3.pt",
         )
         image = controlnet_pipe(
-            "masterpiece, best quality, perfect anime illustration, twin braids, light, one girl, smile, solo",
+            "best quality, perfect anime illustration, light, one girl, smile, solo",
             negative_prompt="verybadimagenegative_v1.3, embroidery, printed patterns, graphic design elements",
             image=input_image,
             control_image=[input_image, input_image],
@@ -65,9 +66,30 @@ class TestImageGeneration(unittest.TestCase):
             strength=1.0,
             num_inference_steps=10,
             generator=torch.Generator(device="cpu").manual_seed(42),
-            height=1344,
-            width=768,
+            height=1536,
+            width=864,
         ).images[0]
         image.save("outputs/sd_1.5_controlnet_img2img.png")
+
+    def test_controlnet_img2img_v2(self):
+        input_image = Image.open("data/example_reference/ref.png")
+        controlnet_pipe = sd_controlnet_img2img_pipe_v2(
+            "./models/stable_diffusion/aingdiffusion_v12.safetensors",
+            ["tile", "lineart"],
+        )
+        input_image = input_image.resize((input_image.width // 64 * 64, input_image.height // 64 * 64))
+        image = controlnet_pipe(
+            prompt="best quality, perfect anime illustration, light, one girl, smile, solo",
+            input_image=input_image,
+            controlnet_image=input_image,
+            num_inference_steps=10,
+            cfg_scale=7.0,
+            clip_skip=2,
+            denoising_strength=1.0,
+            height=input_image.height,
+            width=input_image.width,
+        )
+        image.save("outputs/sd_1.5_controlnet_img2img_v2.png")
+
 if __name__ == '__main__':
     unittest.main()
