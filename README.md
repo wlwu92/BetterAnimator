@@ -38,11 +38,16 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)/third_party/MimicMotion
 git submodule update --init --recursive
 conda env create -f envs/toonshading_osx_env.yaml
 conda activate toonshading
+# Some operators are not supported on MPS, so we need to enable MPS fallback
+# https://github.com/pytorch/pytorch/issues/77764
+export PYTORCH_ENABLE_MPS_FALLBACK=1
 ```
-* [diffusers](https://github.com/huggingface/diffusers) runs slowly(12 mins for 1 image with gguf Q4_K_S).
-* [mflux](https://github.com/filipstrand/mflux) has alot of limitations
-    * only support text-to-image, image-to-image, controlnet(canny only) generation
-* Waiting for mflux to support controlnet, inpaint and more features.
+
+* Flux on MacOS
+    * [diffusers](https://github.com/huggingface/diffusers) runs slowly(12 mins for 1 image with gguf Q4_K_S).
+    * [mflux](https://github.com/filipstrand/mflux) has alot of limitations
+        * only support text-to-image, image-to-image, controlnet(canny only) generation
+    * Waiting for mflux to support controlnet, inpaint and more features.
 
 ### Download models
 

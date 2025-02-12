@@ -11,7 +11,7 @@ from diffusers import (
 )
 from huggingface_hub import snapshot_download
 
-from common.constant import HUGGINGFACE_CACHE_DIR, device
+from common.constant import HUGGINGFACE_CACHE_DIR, DEVICE
 
 CONTROLNET_MODELS = {
     "tile": "models/ControlNet/control_v11f1e_sd15_tile.pth",
@@ -39,7 +39,10 @@ def sd_text2img_pipe(model_path: str) -> StableDiffusionPipeline:
         torch_dtype=torch.float16,
     )
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_model_cpu_offload()
+    if DEVICE == "mps":
+        pipe.to(DEVICE)
+    else:
+        pipe.enable_model_cpu_offload()
     return pipe
 
 def sd_img2img_pipe(model_path: str) -> StableDiffusionImg2ImgPipeline:
@@ -48,7 +51,10 @@ def sd_img2img_pipe(model_path: str) -> StableDiffusionImg2ImgPipeline:
         torch_dtype=torch.float16,
     )
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_model_cpu_offload()
+    if DEVICE == "mps":
+        pipe.to(DEVICE)
+    else:
+        pipe.enable_model_cpu_offload()
     return pipe
 
 
@@ -63,5 +69,8 @@ def sd_controlnet_pipe(model_path: str, control_units: List[str]) -> StableDiffu
         controlnet=controlnets,
     )
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_model_cpu_offload()
+    if DEVICE == "mps":
+        pipe.to(DEVICE)
+    else:
+        pipe.enable_model_cpu_offload()
     return pipe
