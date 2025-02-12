@@ -11,13 +11,13 @@ from image_generation.flux import flux_fill_pipe
 
 reference_scales_params = {
     "x1": [25, 5],
-    "x2": [40, 10],
-    "x3": [55, 15]
+    "x2": [35, 10],
+    "x3": [50, 15]
 }
 
 MULTI_DEVICE_INFERENCE = os.environ.get("MULTI_DEVICE_INFERENCE", "0") == "1"
 
-PROMPT = "Consistant background, a woman in standing in a simple color background. The background is a simple off-white color that acts as a neutral canvas,ensuring that the focus remains on her posture and presence. The overall image style is clean and modern,with a focus on fitness and an active lifestyle"
+PROMPT = "simple color background"
 outpaint_pipe = None
 def load_outpaint_pipe():
     global outpaint_pipe
@@ -87,7 +87,7 @@ def transform_bbox(target_bbox: np.ndarray, target_width: int, target_height: in
     bbox[3] = (bbox[3] - target_bbox[1]) / height * target_height
     return bbox
 
-def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.ndarray):
+def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.ndarray, num_inference_steps=5):
     def _fit_to(value, min_value, max_value, div=8):
         if max_value < min_value:
             min_value, max_value = max_value, min_value
@@ -135,7 +135,7 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
             height=image.height,
             width=image.width,
             guidance_scale=30,
-            num_inference_steps=5,
+            num_inference_steps=num_inference_steps,
             max_sequence_length=512,
             generator=torch.Generator("cpu").manual_seed(0),
         ).images[0]
@@ -156,13 +156,25 @@ def get_object_bbox(result):
     return bbox
 
 
-def generate_character_scales(character_dir: str) -> None:
-    image = Image.open(os.path.join(character_dir, "character.png"))
-    result = image_detect_one_object(os.path.join(character_dir, "character.png"))
+def generate_character_scales(
+    character_dir: str,
+    update_scale: str = None,
+    num_inference_steps: int = 2) -> None:
+    if update_scale is None or update_scale == "x1":
+        base_image_path = os.path.join(character_dir, "character.png")
+    else:
+        base_scale = int(update_scale.strip("x")) - 1
+        base_scale = f'x{base_scale}'
+        assert base_scale in reference_scales_params, f"Invalid base scale: {base_scale}"
+        base_image_path = os.path.join(character_dir, f"character_{base_scale}.png")
+    print(f"Detecting object in {base_image_path}")
+    result = image_detect_one_object(base_image_path)
     object_bbox = get_object_bbox(result)
+    image = Image.open(base_image_path)
 
-    boxes_list = []
     for scale, params in reference_scales_params.items():
+        if update_scale is not None and scale != update_scale:
+            continue
         center_x = (object_bbox[0] + object_bbox[2]) / 2
         height = object_bbox[3] - object_bbox[1]
         scaled_bbox = object_bbox.copy()
@@ -178,31 +190,11 @@ def generate_character_scales(character_dir: str) -> None:
         scaled_image = safe_crop_and_resize(image, scaled_bbox, (new_width, new_height))
         image_bbox = transform_bbox(scaled_bbox, new_width, new_height, np.array([0, 0, image.size[0], image.size[1]]))
         object_bbox = transform_bbox(scaled_bbox, new_width, new_height, object_bbox)
-        step = 0
-        while step < 5:
-            outpainted_image, mask = outpaint_image(scaled_image, image_bbox, object_bbox)
-            if mask is None:
-                break
-            # Calculate the area of the black region in the mask
-            mask_array = np.array(mask)
-            total_area = np.sum(mask_array > 0)
-            outpainted_image_array = np.array(outpainted_image)
-            black_area = np.sum(outpainted_image_array[mask_array > 0] == 0)
-            black_area_ratio = black_area / total_area
-            
-            # If the area of the black region is greater than 20%, recalculate
-            if black_area_ratio > 0.2:
-                outpainted_image.save(f"{character_dir}/scale_{scale}_step_{step}.png")
-                step += 1
-                continue
-            break
+        outpainted_image, _ = outpaint_image(
+            scaled_image,
+            image_bbox,
+            object_bbox,
+            num_inference_steps=num_inference_steps
+        )
         outpainted_image.save(f"{character_dir}/character_{scale}.png")
-        # if mask is not None:
-        #     masked_scaled_image = scaled_image.copy()
-        #     # Multiply the red channel of the mask area by 2
-        #     image_array = np.array(masked_scaled_image)
-        #     mask_array = np.array(mask)
-        #     image_array[mask_array == 0, 0] = np.clip(image_array[mask_array == 0, 0] + 50, 0, 255)
-        #     masked_scaled_image = Image.fromarray(image_array)
-        #     masked_scaled_image.save(f"/tmp/masked_scaled_{scale}.png")
         image = outpainted_image
