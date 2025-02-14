@@ -10,8 +10,6 @@ from diffusers import (
     ControlNetModel,
     UniPCMultistepScheduler,
     DDIMScheduler,
-    CogVideoXDDIMScheduler,
-    FlaxDDIMScheduler,
 )
 from huggingface_hub import snapshot_download
 

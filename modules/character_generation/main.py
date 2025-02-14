@@ -2,6 +2,9 @@ import click
 import logging
 import os
 import shutil
+import json
+
+from modules.character_generation.animate_image import animate_image, animate_image_random_seed
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -53,6 +56,51 @@ def update_character(character_id, image_path, update_scale, num_inference_steps
     # Create character directory
     generate_character_scales(
         character_dir, update_scale=update_scale, num_inference_steps=num_inference_steps)
+
+
+@main.command()
+@click.option('--image_path', type=str, required=True, help='Image path')
+@click.option("--prompt", type=str, required=True, help="Prompt file path or prompt text")
+@click.option('--output_path', type=str, default="", help='Output path')
+@click.option('--seed', type=int, default=-1, help='Seed')
+@click.option('--times', type=int, default=1, help='Number of times to random seed')
+@click.option('--debug', '-d', is_flag=True, help='Debug mode')
+def animate_exp(image_path, prompt, output_path, seed, times, debug):
+    """
+    Animate a character image.
+    """
+    negative_prompt = "embroidery, printed patterns, graphic design elements"
+    if os.path.isfile(prompt):
+        with open(prompt, 'r') as f:
+            prompt_info = json.load(f)
+            prompt = prompt_info["prompt"]
+            if "seed" in prompt_info:
+                print(f"Use seed in prompt file: {prompt_info['seed']}")
+                seed = prompt_info["seed"]
+            if "negative_prompt" in prompt_info:
+                negative_prompt = prompt_info["negative_prompt"]
+    if not output_path:
+        if debug:
+            output_dir = image_path.split('.')[0] + "_anime"
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, image_path.split('/')[-1])
+            import datetime
+            time_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_path = output_path.replace(".png", f"_{time_str}.png")
+            prompt_save_path = output_path.replace(".png", "_prompt.json")
+            with open(prompt_save_path, 'w') as f:
+                json.dump(
+                    {"prompt": prompt, "seed": seed, "negative_prompt": negative_prompt},
+                    f,
+                    indent=4)
+        else:
+            output_path = image_path.split('.')[0] + "_anime.png"
+    if seed != -1:
+        assert times == 1, "Times must be 1 when seed is not -1"
+        animate_image(image_path, prompt, negative_prompt, output_path, seed=seed)
+    else:
+        animate_image_random_seed(image_path, prompt, negative_prompt, output_path, times=times)
+
 
 @main.command()
 @click.option('--image_path', type=str, required=True, help='Image path or image directory')
