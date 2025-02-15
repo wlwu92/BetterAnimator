@@ -5,12 +5,16 @@ from scipy.spatial import ConvexHull
 import numpy as np
 import cv2
 
-from image_generation.flux import flux_pipe
+import torch
+
+from image_generation.flux import flux_fill_pipe
+
+MULTI_DEVICE_INFERENCE = os.environ.get("MULTI_DEVICE_INFERENCE", "0") == "1"
 
 inpaint_pipe = None
 def load_inpaint_pipe():
     global inpaint_pipe
-    inpaint_pipe = flux_pipe(lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors", quantize=True)
+    inpaint_pipe = flux_fill_pipe(lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors", enable_multi_gpu=MULTI_DEVICE_INFERENCE)
 
 from pose_estimation.utils import (
     load_pose,
@@ -100,7 +104,6 @@ def get_crop_bbox(
     return x, y, x + w, y + h
 
 def repair_hands(image_path: str, pose_path: str, output_path: str, target_height: int = 1536) -> None:
-    negative_prompt = "ng_deepnegative_v1_75t,(badhandv4:1.2),EasyNegative,(worst quality:2),"
     # Load image and pose
     image = Image.open(image_path)
     name = os.path.basename(image_path).split('.')[0]
@@ -110,19 +113,6 @@ def repair_hands(image_path: str, pose_path: str, output_path: str, target_heigh
     target_width = int(image.width * scale_h) // 16 * 16
     scale_w = target_width / image.width
     image = image.resize((target_width, target_height))
-    if inpaint_pipe is None:
-        load_inpaint_pipe()
-    image = inpaint_pipe(
-        prompt="",
-        negative_prompt=negative_prompt,
-        input_image=image,
-        num_inference_steps=20,
-        denoising_strength=0.3,
-        height=image.height,
-        width=image.width,
-        seed=0
-    )
-    image.save(os.path.join(output_path, f"{name}_deblur.png"))
     pose = load_pose(pose_path)
     pose[:, 0] *= scale_w
     pose[:, 1] *= scale_h
@@ -154,32 +144,16 @@ def repair_hands(image_path: str, pose_path: str, output_path: str, target_heigh
     crop_mask.save(os.path.join(output_path, f"{name}_crop_mask.png"))
 
     # Inpaint hands
+    if inpaint_pipe is None:
+        load_inpaint_pipe()
     inpainted_image = inpaint_pipe(
-        prompt="",
-        negative_prompt=negative_prompt,
-        input_image=crop_image,
-        local_prompts=["Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",],
-        masks=[crop_mask.convert('RGB'),],
-        mask_scales=[2.0],
+        prompt="Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",
+        image=crop_image,
+        mask_image=crop_mask.convert('RGB'),
         num_inference_steps=20,
-        denoising_strength=0.5,
+        guidance_scale=30,
         height=crop_image.height,
         width=crop_image.width,
-        seed=0
-    )
-    inpainted_image.save(os.path.join(output_path, f"{name}_inpainted_image.png"))
-    # Save image
-    dst_image = image.copy()
-    dst_image.paste(inpainted_image, bbox)
-    dst_image.save(os.path.join(output_path, f"{name}_paste.png"))
-    dst_image = inpaint_pipe(
-        prompt="",
-        negative_prompt=negative_prompt,
-        input_image=dst_image,
-        num_inference_steps=20,
-        denoising_strength=0.3,
-        height=dst_image.height,
-        width=dst_image.width,
-        seed=0
-    )
-    dst_image.save(os.path.join(output_path, f"{name}.png"))
+        generator=torch.Generator().manual_seed(0)
+    ).images[0]
+    inpainted_image.save(os.path.join(output_path, f"{name}.png"))

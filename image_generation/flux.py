@@ -28,6 +28,8 @@ class MultiDevicePipelineBase:
     def __init__(self, pipeline_type: str = "flux", lora_name: str = ""):
         self._vae = None
         self._transformer = None
+        # TODO(wanglong): Support lora name for multi-device inference
+        assert lora_name == "", "Lora name is not supported for multi-device inference"
         self.lora_name = lora_name
         self.model_name = flux_pipeline_info_map[pipeline_type]
 
@@ -48,8 +50,6 @@ class MultiDevicePipelineBase:
                 device_map="auto",
                 torch_dtype=torch.bfloat16,
             )
-            if self.lora_name:
-                self._transformer.load_lora_weights(self.lora_name)
         return self._transformer
 
     def __call__(self, *args: Image.Any, **kwds: Image.Any) -> list[Image.Image]:
