@@ -9,7 +9,7 @@ from modules.character_generation.animate_image import animate_image, animate_im
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-from modules.character_generation.repair_hands import repair_hands
+from modules.character_generation.repair_hands import repair_hands, deblur_image
 from modules.character_generation.generate_character_scales import generate_character_scales
 
 WORKSPACE_DIR = "data/workspace/"
@@ -102,6 +102,33 @@ def animate_exp(image_path, prompt, output_path, seed, times, debug):
         animate_image_random_seed(image_path, prompt, negative_prompt, output_path, times=times)
 
 
+@main.command()
+@click.option('--image_path', type=str, required=True, help='Image path or image directory or image list separated by comma')
+@click.option('--output_dir', type=str, required=True, help='Output directory')
+@click.option('--prompt', type=str, default=None, help='Prompt')
+def deblur(image_path, output_dir, prompt):
+    """
+    Repair images using the specified image path, pose path, and output directory.
+    """
+    if os.path.isdir(image_path):
+        image_list = [os.path.join(image_path, f) for f in os.listdir(image_path) if f.endswith('.jpg') or f.endswith('.png')]
+        image_list.sort()
+    elif os.path.isfile(image_path):
+        image_list = [image_path]
+    else:
+        image_list = image_path.split(',')
+        for image_path in image_list:
+            if not os.path.exists(image_path):
+                logger.error(f"Image path {image_path} does not exist")
+                return
+    logger.info(f"Processing {len(image_list)} images")
+    os.makedirs(output_dir, exist_ok=True)
+    for image_path in image_list:
+        logger.info(f"Processing image: {image_path}")
+        output_path = os.path.join(output_dir, os.path.basename(image_path))
+        deblur_image(image_path, output_path, prompt)
+        
+        
 @main.command()
 @click.option('--image_path', type=str, required=True, help='Image path or image directory')
 @click.option('--pose_path', type=str, required=True, help='Pose path or pose directory')
