@@ -19,8 +19,7 @@ def load_deblur_pipe():
 inpaint_pipe = None
 def load_inpaint_pipe():
     global inpaint_pipe
-    # inpaint_pipe = flux_fill_pipe(lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors", enable_multi_gpu=MULTI_DEVICE_INFERENCE)
-    inpaint_pipe = flux_fill_pipe(enable_multi_gpu=MULTI_DEVICE_INFERENCE)
+    inpaint_pipe = flux_fill_pipe(lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors", enable_multi_gpu=MULTI_DEVICE_INFERENCE)
 
 from pose_estimation.utils import (
     load_pose,
@@ -109,13 +108,13 @@ def get_crop_bbox(
         y = height - h
     return x, y, x + w, y + h
 
-def deblur_image(image_path: str, output_path: str, prompt: str = None):
+def deblur_image(image_path: str, output_path: str, prompt: str = None, target_height: int = 1536):
     image = Image.open(image_path)
     height = image.height
     width = image.width
-    height = int(height / 16) * 16
-    width = int(width / 16) * 16
-    image = image.resize((width, height))
+    scale_h = target_height / height
+    target_width = int(image.width * scale_h) // 16 * 16
+    image = image.resize((target_width, target_height))
 
     if deblur_pipe is None:
         load_deblur_pipe()
@@ -123,9 +122,9 @@ def deblur_image(image_path: str, output_path: str, prompt: str = None):
         prompt="" if prompt is None else prompt,
         image=image,
         num_inference_steps=30,
-        strength=0.5,
-        height=height,
-        width=width,
+        strength=0.3,
+        height=target_height,
+        width=target_width,
         generator=torch.Generator().manual_seed(0)
     ).images[0]
     deblurred_image.save(output_path)

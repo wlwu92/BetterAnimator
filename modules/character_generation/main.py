@@ -124,9 +124,23 @@ def deblur(image_path, output_dir, prompt):
     logger.info(f"Processing {len(image_list)} images")
     os.makedirs(output_dir, exist_ok=True)
     for image_path in image_list:
+        load_prompt = prompt
+        if prompt is None:
+            image_name = os.path.basename(image_path)
+            if "_ref_" in image_name and "_frame_" in image_name:
+                ref_id = int(image_name.split("_ref_")[1].split("_frame_")[0])
+                prompt_path = os.path.join(CHARACTER_DIR, f"{ref_id:06d}", "prompt.json")
+                if os.path.exists(prompt_path):
+                    with open(prompt_path, 'r') as f:
+                        prompt_info = json.load(f)
+                        if "prompt_deblur" in prompt_info:
+                            prompt = prompt_info["prompt_deblur"]
+                            logger.info(f"Use prompt_deblur: {prompt}")
+                        else:
+                            logger.info(f"No prompt_deblur in {prompt_path}")
         logger.info(f"Processing image: {image_path}")
         output_path = os.path.join(output_dir, os.path.basename(image_path))
-        deblur_image(image_path, output_path, prompt)
+        deblur_image(image_path, output_path, load_prompt)
         
         
 @main.command()
