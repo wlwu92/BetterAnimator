@@ -56,14 +56,17 @@ def safe_crop_and_resize(image: Image.Image, box: tuple, target_size: tuple) -> 
     
     # If padding is needed, create a new canvas
     if any([pad_left, pad_top, pad_right, pad_bottom]):
-        # Create a new canvas (fill with black or other color)
-        new_width = img_width + pad_left + pad_right
-        new_height = img_height + pad_top + pad_bottom
-        new_image = Image.new(image.mode, (new_width, new_height), (0, 0, 0))
-        
-        # Paste the original image to the correct position on the new canvas
-        new_image.paste(image, (pad_left, pad_top))
-        
+        # Use cv2.copyMakeBorder to add padding with edge color
+        cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        padded_image = cv2.copyMakeBorder(
+            cv_image,
+            pad_top,
+            pad_bottom,
+            pad_left,
+            pad_right,
+            cv2.BORDER_REPLICATE
+        )
+        image = Image.fromarray(cv2.cvtColor(padded_image, cv2.COLOR_BGR2RGB))
         # Adjust the cropping box coordinates
         box = (
             left + pad_left,
@@ -71,7 +74,6 @@ def safe_crop_and_resize(image: Image.Image, box: tuple, target_size: tuple) -> 
             right + pad_left,
             bottom + pad_top
         )
-        image = new_image
     
     # Now it is safe to crop
     cropped = image.crop(box)
@@ -191,6 +193,7 @@ def generate_character_scales(
         scaled_bbox = np.round(scaled_bbox).astype(int)
 
         new_width, new_height = 864, 1536
+
         scaled_image = safe_crop_and_resize(image, scaled_bbox, (new_width, new_height))
         image_bbox = transform_bbox(scaled_bbox, new_width, new_height, np.array([0, 0, image.size[0], image.size[1]]))
         object_bbox = transform_bbox(scaled_bbox, new_width, new_height, object_bbox)
