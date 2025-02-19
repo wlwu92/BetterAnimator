@@ -69,6 +69,10 @@ class MultiDevicePipelineBase:
             latents = (latents / vae.config.scaling_factor) + vae.config.shift_factor
             image = vae.decode(latents.to("cuda"), return_dict=False)[0]
             image = image_processor.postprocess(image, output_type="pil")[0]
+        del vae
+        self._vae = None
+        del latents
+        flush()
         return FluxPipelineOutput(images=[image])
 
 
@@ -258,6 +262,8 @@ class MultiDeviceFluxImg2ImgPipeline(MultiDevicePipelineBase):
             generator=generator,
         ).images
         self._transformer = None
+        del pipeline.vae
+        self._vae = None
         del pipeline
         flush()
         return latents 
