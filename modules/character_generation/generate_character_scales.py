@@ -21,7 +21,11 @@ PROMPT = "simple color background"
 outpaint_pipe = None
 def load_outpaint_pipe():
     global outpaint_pipe
-    outpaint_pipe = flux_fill_pipe(enable_multi_gpu=MULTI_DEVICE_INFERENCE)
+    outpaint_pipe = flux_fill_pipe(
+        lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors",
+        enable_multi_gpu=MULTI_DEVICE_INFERENCE,
+        use_quantization=False,
+    )
 
 def image_detect_one_object(image_path: str) -> Results:
     model = YOLO("models/yolo11n-pose.pt")
@@ -186,7 +190,7 @@ def generate_character_scales(
         scaled_bbox[2] = center_x + width / 2
         scaled_bbox = np.round(scaled_bbox).astype(int)
 
-        new_width, new_height = 720, 1280
+        new_width, new_height = 864, 1536
         scaled_image = safe_crop_and_resize(image, scaled_bbox, (new_width, new_height))
         image_bbox = transform_bbox(scaled_bbox, new_width, new_height, np.array([0, 0, image.size[0], image.size[1]]))
         object_bbox = transform_bbox(scaled_bbox, new_width, new_height, object_bbox)
