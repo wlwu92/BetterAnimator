@@ -423,14 +423,54 @@ def flux_img2img_pipe(lora_name: str = "", enable_multi_gpu: bool = False) -> Fl
     pipe.enable_model_cpu_offload()
     return pipe
 
-def flux_fill_pipe(lora_name: str = "", enable_multi_gpu: bool = False) -> FluxFillPipeline:
+def flux_fill_pipe(
+    lora_name: str = "",
+    enable_multi_gpu: bool = False,
+    use_quantization: bool = True,
+) -> FluxFillPipeline:
     if enable_multi_gpu:
         return MultiDeviceFluxFillPipeline(lora_name=lora_name)
-    pipe = FluxFillPipeline.from_pretrained(
-        "models/FLUX/FLUX.1-Fill-dev",
-        torch_dtype=torch.bfloat16,
-    )
-    if lora_name:
-        pipe.load_lora_weights(lora_name)
-    pipe.enable_model_cpu_offload()
+    if use_quantization:
+        from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig
+        from transformers import BitsAndBytesConfig as TransformersBitsAndBytesConfig
+        from transformers import T5EncoderModel
+
+        quant_config = TransformersBitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+
+        text_encoder_2_quantized = T5EncoderModel.from_pretrained(
+            "models/FLUX/FLUX.1-dev",
+            subfolder="text_encoder_2",
+            quantization_config=quant_config,
+            torch_dtype=torch.float16,
+        )
+        quant_config = DiffusersBitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        transformer_quantized = FluxTransformer2DModel.from_pretrained(
+            "models/FLUX/FLUX.1-Fill-dev",
+            subfolder="transformer",
+            quantization_config=quant_config,
+            torch_dtype=torch.float16,
+        )
+        pipe = FluxFillPipeline.from_pretrained(
+            "models/FLUX/FLUX.1-Fill-dev",
+            text_encoder_2=text_encoder_2_quantized,
+            transformer=transformer_quantized,
+            torch_dtype=torch.float16,
+            device_map="balanced",
+        )
+        if lora_name:
+            pipe.load_lora_weights(lora_name)
+    else:
+        pipe = FluxFillPipeline.from_pretrained(
+            "models/FLUX/FLUX.1-Fill-dev",
+            torch_dtype=torch.bfloat16,
+        )
+        if lora_name:
+            pipe.load_lora_weights(lora_name)
+        pipe.enable_model_cpu_offload()
     return pipe
