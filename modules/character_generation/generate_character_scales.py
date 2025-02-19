@@ -79,7 +79,7 @@ def safe_crop_and_resize(image: Image.Image, box: tuple, target_size: tuple) -> 
     cropped = image.crop(box)
     
     # Adjust to the target size
-    resized = cropped.resize(target_size, Image.Resampling.LANCZOS)
+    resized = cropped.resize(target_size, Image.Resampling.BICUBIC)
     
     return resized
 
@@ -140,14 +140,11 @@ def outpaint_image(image: Image.Image, image_bbox: np.ndarray, object_bbox: np.n
             mask_image=mask.convert("RGB"),
             height=image.height,
             width=image.width,
-            guidance_scale=30,
+            guidance_scale=3.5,
             num_inference_steps=num_inference_steps,
             max_sequence_length=512,
             generator=torch.Generator("cpu").manual_seed(0),
         ).images[0]
-        outpainted_image.save("outputs/outpainted_image.png")
-        # outpainted_image = outpainted_image.resize(origin_size)
-        # mask = mask.resize(origin_size)
         return outpainted_image, mask
 
     return image, None
