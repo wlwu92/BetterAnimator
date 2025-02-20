@@ -14,7 +14,7 @@ def load_image_pose(pose_path: str) -> np.ndarray:
 
 def load_video_pose(video_pose_dir: str) -> List[np.ndarray]:
     video_poses = []
-    for file in sorted(os.listdir(video_pose_dir)):
+    for file in sorted(os.listdir(video_pose_dir), key=lambda x: int(os.path.splitext(x)[0])):
         video_poses.append(load_image_pose(os.path.join(video_pose_dir, file)))
     return video_poses
 

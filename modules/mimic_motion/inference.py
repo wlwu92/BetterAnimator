@@ -44,7 +44,7 @@ def preprocess(video_pose_dir, ref_image_path, ref_pose_path, resolution=576):
 
     image_pose = load_image_pose(ref_pose_path)
     video_poses = load_video_pose(video_pose_dir)
-    image_pose[0, :2] = image_pose[0, :2] * new_h / h
+    image_pose[:, :2] = image_pose[:, :2] * new_h / h
     pose_pixels = generate_pose_pixels(image_pose, video_poses, new_w, new_h)
     pose_pixels = torch.from_numpy(pose_pixels) / 127.5 - 1
     return image_pixels, pose_pixels
@@ -53,7 +53,6 @@ def run_pipeline(pipeline: MimicMotionPipeline, image_pixels, pose_pixels, devic
     image_pixels = [to_pil_image(img.to(torch.uint8)) for img in (image_pixels + 1.0) * 127.5]
     generator = torch.Generator(device=device)
     generator.manual_seed(task_config.seed)
-    import pdb; pdb.set_trace()
     frames = pipeline(
         image_pixels, image_pose=pose_pixels, num_frames=pose_pixels.size(0),
         tile_size=task_config.num_frames, tile_overlap=task_config.frames_overlap,

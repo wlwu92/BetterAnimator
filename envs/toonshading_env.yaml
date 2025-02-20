@@ -28,3 +28,4 @@ dependencies:
     - bitsandbytes==0.45.2
     - pytest==8.3.4
     - peft==0.14.0
+    - av==14.1.0
