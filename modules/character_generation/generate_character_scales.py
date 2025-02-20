@@ -11,11 +11,12 @@ from image_generation.flux import flux_fill_pipe
 
 reference_scales_params = {
     "x1": [25, 5],
-    "x2": [35, 10],
+    "x2": [37.5, 10],
     "x3": [50, 15]
 }
 
 MULTI_DEVICE_INFERENCE = os.environ.get("MULTI_DEVICE_INFERENCE", "0") == "1"
+USE_QUANTIZATION = os.environ.get("USE_QUANTIZATION", "0") == "1"
 
 PROMPT = "simple color background"
 outpaint_pipe = None
@@ -24,7 +25,7 @@ def load_outpaint_pipe():
     outpaint_pipe = flux_fill_pipe(
         lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors",
         enable_multi_gpu=MULTI_DEVICE_INFERENCE,
-        use_quantization=False,
+        use_quantization=USE_QUANTIZATION,
     )
 
 def image_detect_one_object(image_path: str) -> Results:
@@ -53,11 +54,9 @@ def safe_crop_and_resize(image: Image.Image, box: tuple, target_size: tuple) -> 
     pad_top = abs(min(0, top))
     pad_right = max(0, right - img_width)
     pad_bottom = max(0, bottom - img_height)
-    
-    # If padding is needed, create a new canvas
     if any([pad_left, pad_top, pad_right, pad_bottom]):
-        # Use cv2.copyMakeBorder to add padding with edge color
         cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        # Use cv2.copyMakeBorder to add padding with edge color
         padded_image = cv2.copyMakeBorder(
             cv_image,
             pad_top,
@@ -74,13 +73,8 @@ def safe_crop_and_resize(image: Image.Image, box: tuple, target_size: tuple) -> 
             right + pad_left,
             bottom + pad_top
         )
-    
-    # Now it is safe to crop
     cropped = image.crop(box)
-    
-    # Adjust to the target size
     resized = cropped.resize(target_size, Image.Resampling.BICUBIC)
-    
     return resized
 
 def transform_bbox(target_bbox: np.ndarray, target_width: int, target_height: int, bbox: np.ndarray) -> np.ndarray:
@@ -163,14 +157,7 @@ def generate_character_scales(
     character_dir: str,
     update_scale: str = None,
     num_inference_steps: int = 2) -> None:
-    if update_scale is None or update_scale == "x1":
-        base_image_path = os.path.join(character_dir, "character.png")
-    else:
-        base_scale = int(update_scale.strip("x")) - 1
-        base_scale = f'x{base_scale}'
-        assert base_scale in reference_scales_params, f"Invalid base scale: {base_scale}"
-        base_image_path = os.path.join(character_dir, f"character_{base_scale}.png")
-    print(f"Detecting object in {base_image_path}")
+    base_image_path = os.path.join(character_dir, "character.png")
     result = image_detect_one_object(base_image_path)
     object_bbox = get_object_bbox(result)
     image = Image.open(base_image_path)
@@ -190,15 +177,13 @@ def generate_character_scales(
         scaled_bbox = np.round(scaled_bbox).astype(int)
 
         new_width, new_height = 864, 1536
-
         scaled_image = safe_crop_and_resize(image, scaled_bbox, (new_width, new_height))
         image_bbox = transform_bbox(scaled_bbox, new_width, new_height, np.array([0, 0, image.size[0], image.size[1]]))
-        object_bbox = transform_bbox(scaled_bbox, new_width, new_height, object_bbox)
+        transformed_object_bbox = transform_bbox(scaled_bbox, new_width, new_height, object_bbox.copy())
         outpainted_image, _ = outpaint_image(
             scaled_image,
             image_bbox,
-            object_bbox,
+            transformed_object_bbox,
             num_inference_steps=num_inference_steps
         )
         outpainted_image.save(f"{character_dir}/character_{scale}.png")
-        image = outpainted_image
