@@ -4,3 +4,6 @@
 [submodule "third_party/sapiens"]
 	path = third_party/sapiens
 	url = https://github.com/facebookresearch/sapiens.git
+[submodule "third_party/facefusion"]
+	path = third_party/facefusion
+	url = https://github.com/facefusion/facefusion.git

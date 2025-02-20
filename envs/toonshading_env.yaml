@@ -5,6 +5,8 @@ channels:
   - nvidia
 dependencies:
   - cuda-toolkit
+  - conda-forge::cuda-runtime=12.6.3
+  - conda-forge::cudnn=9.3.0.75
   - python=3.12.8
   - pytorch=2.5.1
   - torchvision=0.20.1
@@ -29,3 +31,4 @@ dependencies:
     - pytest==8.3.4
     - peft==0.14.0
     - av==14.1.0
+    - tensorrt==10.6.0 --extra-index-url https://pypi.nvidia.com

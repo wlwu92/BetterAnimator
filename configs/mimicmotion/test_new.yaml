@@ -9,7 +9,7 @@ test_case:
     ref_image_path: data/mimicmotion_test/example_image.png
     ref_pose_path: data/mimicmotion_test/example_image_pose.json
     output_path: outputs/mimicmotion_test/mimicmotion.mp4
-    num_frames: 72
+    num_frames: 56
     resolution: 576
     frames_overlap: 6
     num_inference_steps: 25

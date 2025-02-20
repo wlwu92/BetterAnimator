@@ -71,8 +71,8 @@ def draw_handpose(canvas, hands):
             x2, y2 = hand_coords[e[1]].astype(np.int32)
             score = int(hand_scores[e[0]] * hand_scores[e[1]] * 255)
             if x1 > eps and y1 > eps and x2 > eps and y2 > eps:
-                cv2.line(canvas, (x1, y1), (x2, y2), 
-                            matplotlib.colors.hsv_to_rgb([ie / float(len(edges)), 1.0, 1.0]) * score, thickness=2)
+                color = matplotlib.colors.hsv_to_rgb([ie / float(len(edges)), 1.0, 1.0]) * score
+                cv2.line(canvas, (x1, y1), (x2, y2), color, thickness=2)
         for i, keypoint in enumerate(hand_coords):
             x, y = keypoint.astype(np.int32)
             score = int(hand_scores[i] * 255)
@@ -94,11 +94,7 @@ def draw_facepose(canvas, face_lmks):
     return canvas
 
 def draw_pose(pose, H, W, ref_w=2160):
-    """
-    pose: dict
-    H: int
-    W: int
-    ref_w: int
+    """vis dwpose outputs
     """
     sz = min(H, W)
     sr = (ref_w / sz) if sz != ref_w else 1
