@@ -26,22 +26,21 @@ def _get_alignment_keypoints_id(ref_pose_body: np.ndarray) -> List[int]:
     valid_keypoints_id = [i for i in candidate_keypoint_id if ref_pose_body[i, 2] > 0.3]
     return valid_keypoints_id
 
-def _pose_alignment(ref_body, video_bodys, width, height) -> Tuple[np.ndarray, np.ndarray]:
-    num_video_poses = len(video_bodys)
+def _pose_alignment(ref_body, video_bodies) -> Tuple[np.ndarray, np.ndarray]:
+    num_video_poses = len(video_bodies)
 
     # Get valid alignment keypoints id
     alignment_keypoints_id = _get_alignment_keypoints_id(ref_body)
     ref_body = ref_body[alignment_keypoints_id]
-    video_bodys = [body[alignment_keypoints_id] for body in video_bodys]
-    video_bodys = np.stack(video_bodys)
+    video_bodies = [body[alignment_keypoints_id] for body in video_bodies]
+    video_bodies = np.concatenate(video_bodies, axis=0)
 
     # Compute linear-rescale params
-    # TODO(wanglong): normalize x,y before fitting
     x_ref, y_ref = ref_body[:, 0], ref_body[:, 1]
-    x_video, y_video = video_bodys[:, 0], video_bodys[:, 1]
+    x_video, y_video = video_bodies[:, 0], video_bodies[:, 1]
     ay, by = np.polyfit(y_video, np.tile(y_ref, num_video_poses), 1)
-    ax = ay / (height / width)
-    bx = np.mean(x_ref - x_video * ax)
+    ax = ay
+    bx = np.mean(np.tile(x_ref, num_video_poses) - x_video * ax)
     a = np.array([ax, ay])
     b = np.array([bx, by])
     return a, b
@@ -85,7 +84,7 @@ def generate_pose_pixels(ref_pose, video_poses, ref_width, ref_height):
     # Pose alignment
     a, b = _pose_alignment(
         ref_pose_parts['bodies'],
-        [pose['bodies'] for pose in video_poses_parts], ref_width, ref_height)
+        [pose['bodies'] for pose in video_poses_parts])
     for pose_parts in video_poses_parts:
         pose_parts['bodies'][:, :2] = pose_parts['bodies'][:, :2] * a + b
         pose_parts['hands'][:, :2] = pose_parts['hands'][:, :2] * a + b

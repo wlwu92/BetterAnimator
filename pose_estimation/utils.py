@@ -2,6 +2,23 @@ import json
 import numpy as np
 from PIL import Image, ImageDraw
 
+def save_pose(pose_array: np.ndarray, pose_path: str):
+    """
+    Save a pose to a JSON file.
+    """
+    assert pose_array.shape[0] == 133, "Pose array must have 133 elements"
+    assert pose_array.shape[1] == 3, "Pose array must have 3 elements(x, y, score) per keypoint"
+    json_data = {
+        "instance_info": [
+            {
+                "keypoints": pose_array[:, :2].tolist(),
+                "keypoint_scores": pose_array[:, 2].tolist()
+            }
+        ]
+    }
+    with open(pose_path, 'w') as file:
+        json.dump(json_data, file, indent=4)
+
 def load_pose(pose_path: str) -> np.ndarray:
     """
     Load a pose from a JSON file.
