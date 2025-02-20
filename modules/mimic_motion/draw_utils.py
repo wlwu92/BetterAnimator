@@ -81,6 +81,10 @@ def draw_handpose(canvas, hands):
     return canvas
 
 def draw_facepose(canvas, face_lmks):
+    """
+    canvas: numpy array of shape (H, W, 3)
+    face_lmks: numpy array of shape (68, 3)
+    """
     lmks, scores = face_lmks[:, :2], face_lmks[:, 2]
     for lmk, score in zip(lmks, scores):
         x, y = lmk.astype(np.int32)
@@ -90,7 +94,11 @@ def draw_facepose(canvas, face_lmks):
     return canvas
 
 def draw_pose(pose, H, W, ref_w=2160):
-    """vis dwpose outputs
+    """
+    pose: dict
+    H: int
+    W: int
+    ref_w: int
     """
     sz = min(H, W)
     sr = (ref_w / sz) if sz != ref_w else 1

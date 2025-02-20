@@ -5,6 +5,7 @@ import numpy as np
 
 from pose_estimation.utils import (
     load_pose, to_openpose_format, get_pose_parts)
+from modules.mimic_motion.draw_utils import draw_pose
 
 def load_image_pose(pose_path: str) -> np.ndarray:
     pose = load_pose(pose_path)
@@ -45,34 +46,6 @@ def _pose_alignment(ref_body, video_bodies) -> Tuple[np.ndarray, np.ndarray]:
     b = np.array([bx, by])
     return a, b
 
-def _draw_pose(pose_parts, height, width, ref_w=2160):
-    """vis dwpose outputs
-
-    Args:
-        pose (List): DWposeDetector outputs in dwpose_detector.py
-        H (int): height
-        W (int): width
-        ref_w (int, optional) Defaults to 2160.
-    """
-    scale = np.array([width, height])
-    # Change to mimicmotion format
-    bodies, bodies_score = pose_parts['bodies'][:, :2], pose_parts['bodies'][:, 2]
-    bodies = bodies / scale
-    subset = [i if bodies_score[i] > 0.3 else -1 for i in range(bodies.shape[0])]
-    
-    hands, hands_score = pose_parts['hands'][:, :2], pose_parts['hands_score']
-    hands = hands / scale
-
-    faces, faces_score = pose_parts['faces'][:, :2], pose_parts['faces_score']
-    faces = faces / scale
-
-    return draw_pose(dict())
-    
-    
-    
-    
-    
-
 def generate_pose_pixels(ref_pose, video_poses, ref_width, ref_height):
     """
     Generate pose pixels from video poses and image pose.
@@ -92,11 +65,9 @@ def generate_pose_pixels(ref_pose, video_poses, ref_width, ref_height):
         pose_parts['foot'][:, :2] = pose_parts['foot'][:, :2] * a + b
 
     # Draw pose
-    ref_pose_pixel = _draw_pose(ref_pose_parts, ref_height, ref_width)
+    # [H, W, 3]
+    ref_pose_pixel = draw_pose(ref_pose_parts, ref_height, ref_width)
     video_poses_pixels = [
-        _draw_pose(pose_parts, ref_height, ref_width) for pose_parts in video_poses_parts]
-    return np.stack([ref_pose_pixel] + video_poses_pixels)
-
-
-
-
+        draw_pose(pose_parts, ref_height, ref_width) for pose_parts in video_poses_parts]
+    # [N, 3, H, W]
+    return np.stack([ref_pose_pixel] + video_poses_pixels).transpose(0, 3, 1, 2)
