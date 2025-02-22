@@ -23,6 +23,7 @@ def generate_example_video_pose():
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     for i in range(frame_count):
         ret, frame = cap.read()
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         if not ret:
             break
         pose = dwpose.detect(Image.fromarray(frame))
@@ -43,7 +44,7 @@ class PreprocessTest(unittest.TestCase):
         self.expected_a, self.expected_b = get_mimicmotion_alignment_result()
         self.ref_width, self.ref_height = Image.open(REF_IMAGE_PATH).size
         self.video_width, self.video_height = 1080, 1920
-        # generate_example_video_pose()
+        generate_example_video_pose()
 
     def test_pose_alignment(self):
         image_pose = load_image_pose("data/mimicmotion_test/example_image_pose.json")
