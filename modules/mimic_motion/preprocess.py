@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List, Tuple
 
 import numpy as np
@@ -14,8 +15,9 @@ def load_image_pose(pose_path: str) -> np.ndarray:
 
 def load_video_pose(video_pose_dir: str) -> List[np.ndarray]:
     video_poses = []
-    for file in sorted(os.listdir(video_pose_dir), key=lambda x: int(os.path.splitext(x)[0])):
-        video_poses.append(load_image_pose(os.path.join(video_pose_dir, file)))
+    video_pose_dir = Path(video_pose_dir)
+    for file in sorted(video_pose_dir.glob("*.json"), key=lambda x: int(x.stem)):
+        video_poses.append(load_image_pose(file))
     return video_poses
 
 
