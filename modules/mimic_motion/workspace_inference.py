@@ -1,5 +1,5 @@
 """
-Scan unprocessed mimic motion tasks in the workspace with the following conditions:
+Scan unprocessed mimic motion tasks and infer them in the workspace with the following conditions:
 1. character.png and character_pose.json exist
 2. mimic_motion.mp4 not exist
 """
@@ -30,7 +30,7 @@ def gen_mimic_motion_conf(
     """
     conf_dir = Path(WORKSPACE_DIR) / "logs" / "mimic_motion"
     conf_dir.mkdir(parents=True, exist_ok=True)
-    conf_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.yaml"
+    conf_name = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml"
     conf_path = conf_dir / conf_name
 
     config = {
