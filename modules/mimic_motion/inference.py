@@ -71,11 +71,11 @@ def run_pipeline(pipeline: MimicMotionPipeline, image_pixels, pose_pixels, devic
 
 
 @torch.no_grad()
-def main(args):
-    if not args.no_use_float16 :
+def inference(inference_config: str, no_use_float16: bool = False):
+    if not no_use_float16:
         torch.set_default_dtype(torch.float16)
 
-    infer_config = OmegaConf.load(args.inference_config)
+    infer_config = OmegaConf.load(inference_config)
     pipeline = create_pipeline(infer_config, device)
     for task in infer_config.test_case:
         ############################################## Pre-process data ##############################################
@@ -117,5 +117,5 @@ if __name__ == "__main__":
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     set_logger(args.log_file \
                if args.log_file is not None else f"{args.output_dir}/{datetime.now().strftime('%Y%m%d%H%M%S')}.log")
-    main(args)
+    inference(args.inference_config, args.no_use_float16)
     logger.info(f"--- Finished ---")
