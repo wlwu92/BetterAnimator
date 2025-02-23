@@ -32,3 +32,4 @@ dependencies:
     - peft==0.14.0
     - av==14.1.0
     - tensorrt==10.6.0 --extra-index-url https://pypi.nvidia.com
+    - ffmpeg-python==0.2.0

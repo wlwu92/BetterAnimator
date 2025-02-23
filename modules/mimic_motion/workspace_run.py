@@ -10,15 +10,17 @@ import datetime
 from pathlib import Path
 from typing import List
 import yaml
+from concurrent.futures import ProcessPoolExecutor
 
-from modules.mimic_motion.inference import inference
+import torch
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 WORKSPACE_DIR = Path("data/workspace")
 TASK_DIR = WORKSPACE_DIR / "gens"
 VIDEO_DIR = WORKSPACE_DIR / "videos"
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
 
 def gen_mimic_motion_conf(
     tasks: List[Path],
@@ -64,9 +66,47 @@ def gen_mimic_motion_conf(
         }
         config["test_case"].append(test_case)
 
-    with open(conf_path, "w") as f:
+    return config
+
+def _run_task(gpu_id, start, length, task_conf, config_prefix):
+    from modules.mimic_motion.inference import inference
+
+    num_tasks = min(length, len(task_conf["test_case"]) - start)
+    logger.info(f"Running {num_tasks} tasks on GPU {gpu_id}")
+    config = task_conf.copy()
+    config["test_case"] = config["test_case"][start:start+num_tasks]
+    config_name = f"{config_prefix}_shard_{start}.yaml"
+    config_path = Path(WORKSPACE_DIR) / "logs" / "mimic_motion" / config_name
+    with open(config_path, "w") as f:
         yaml.dump(config, f)
-    return conf_path
+    with torch.cuda.device(gpu_id):
+        with torch.no_grad():
+            inference(config_path)
+
+def run(tasks: list[Path], num_frames: int = 72, resolution: int = 576) -> None:
+    """
+    Run a list of task configurations in parallel.
+    """
+    logger.info(f"Found {len(tasks)} tasks")
+    num_tasks = len(tasks)
+    inference_conf = gen_mimic_motion_conf(tasks, num_frames, resolution)
+    date_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    num_gpus = torch.cuda.device_count()
+    max_batch_size = 8
+    logger.info(f"Number of available GPUs: {num_gpus}")
+
+    with ProcessPoolExecutor(max_workers=num_gpus) as executor:
+        task_iter = 0
+        futures = []
+        while task_iter < num_tasks:
+            batch_size = min(max_batch_size, (num_tasks - task_iter + num_gpus - 1) // num_gpus)
+            for i in range(num_gpus):
+                if task_iter < num_tasks:
+                    futures.append(
+                        executor.submit(_run_task, i, task_iter, batch_size, inference_conf, date_str))
+                    task_iter += batch_size
+        for future in futures:
+            future.result()
 
 def main(
     task_dir: str = "",
@@ -95,9 +135,7 @@ def main(
                 logger.info(f"Task {video_dir} already exists, skipping")
                 continue
             tasks.append(video_dir)
-    logger.info(f"Found {len(tasks)} tasks")
-    inference_conf = gen_mimic_motion_conf(tasks, num_frames, resolution)
-    inference(inference_conf)
+    run(tasks, num_frames, resolution)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

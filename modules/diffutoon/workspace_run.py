@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import logging
 import torch
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -131,28 +131,29 @@ def gen_config(task_dir: Path) -> dict:
     }
     return config
 
+
+def _run_task(gpu_id, task_dir, task_conf):
+    from diffsynth import SDVideoPipelineRunner
+    runner = SDVideoPipelineRunner()
+    logger.info(f"Running: {task_dir} on GPU {gpu_id}")
+    with open(task_dir / "diffutoon_config.json", "w") as f:
+        json.dump(task_conf, f, indent=4)
+    with torch.cuda.device(gpu_id):
+        runner.run(task_conf)
+
 def run(task_confs: list[tuple[Path, dict]]) -> None:
     """
     Run a list of task configurations in parallel.
     """
-    from diffsynth import SDVideoPipelineRunner
 
     logger.info(f"Running {len(task_confs)} tasks")
     num_gpus = torch.cuda.device_count()
     logger.info(f"Number of available GPUs: {num_gpus}")
 
-    def run_task(i, task_dir, task_conf):
-        runner = SDVideoPipelineRunner()
-        gpu_id = i % num_gpus
-        logger.info(f"Running: {task_dir} on GPU {gpu_id}")
-        with open(task_dir / "diffutoon_config.json", "w") as f:
-            json.dump(task_conf, f, indent=4)
-        torch.cuda.set_device(gpu_id)
-        runner.run(task_conf)
-
-    with ThreadPoolExecutor(max_workers=num_gpus) as executor:
-        futures = [executor.submit(run_task, i, task_dir, task_conf)
-                   for i, (task_dir, task_conf) in enumerate(task_confs)]
+    with ProcessPoolExecutor(max_workers=num_gpus) as executor:
+        futures = [
+            executor.submit(_run_task, i % num_gpus, task_dir, task_conf)
+            for i, (task_dir, task_conf) in enumerate(task_confs)]
         for future in futures:
             future.result()
 
