@@ -26,7 +26,13 @@ def gen_mimic_motion_conf(
     resolution: int = 576,
 ) -> str:
     """
-    Get the mimic motion configuration from the video directory
+    Generate the mimic motion configuration for the given tasks
+    Args:
+        tasks: List of tasks to generate the configuration for
+        num_frames: Number of frames to generate
+        resolution: Resolution of the generated video
+    Returns:
+        Path to the generated configuration file
     """
     conf_dir = Path(WORKSPACE_DIR) / "logs" / "mimic_motion"
     conf_dir.mkdir(parents=True, exist_ok=True)
@@ -62,10 +68,25 @@ def gen_mimic_motion_conf(
         yaml.dump(config, f)
     return conf_path
 
-def main(skip_if_exists: bool = False, num_frames: int = 72, resolution: int = 576) -> None:
+def main(
+    task_dir: str = "",
+    character_id: str = "",
+    video_id: str = "",
+    skip_if_exists: bool = False,
+    num_frames: int = 72,
+    resolution: int = 576) -> None:
     tasks = []
-    for character_dir in sorted(Path(TASK_DIR).glob("*")):
-        for video_dir in sorted(character_dir.glob("*")):
+    if task_dir:
+        assert character_id == "" and video_id == "", "task_dir is not allowed to be used with character_id or video_id"
+        task_dir = Path(task_dir)
+        video_id = task_dir.name
+        character_id = task_dir.parent.name
+    candidate_characters = sorted(TASK_DIR.glob("*")) \
+        if not character_id else [TASK_DIR / character_id]
+    for character_dir in candidate_characters:
+        candidate_videos = sorted(character_dir.glob("*")) \
+            if not video_id else [character_dir / video_id]
+        for video_dir in candidate_videos:
             if not (video_dir / "character.png").exists() or not (video_dir / "character_pose.json").exists():
                 logger.info(f"Invalid task: {video_dir}")
                 continue
@@ -81,7 +102,10 @@ def main(skip_if_exists: bool = False, num_frames: int = 72, resolution: int = 5
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip_if_exists", action="store_true")
+    parser.add_argument("--task_dir", type=str, default="", help="Only run the task in the given task")
+    parser.add_argument("--character_id", type=str, default="", help="Only run the task for the given character")
+    parser.add_argument("--video_id", type=str, default="", help="Only run the task for the given video")
     parser.add_argument("--num_frames", type=int, default=72)
     parser.add_argument("--resolution", type=int, default=576)
     args = parser.parse_args()
-    main(args.skip_if_exists, args.num_frames, args.resolution)
+    main(args.task_dir, args.character_id, args.video_id, args.skip_if_exists, args.num_frames, args.resolution)
