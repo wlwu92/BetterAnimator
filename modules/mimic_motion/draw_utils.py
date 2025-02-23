@@ -96,13 +96,18 @@ def draw_facepose(canvas, face_lmks):
 def draw_feetpose(canvas, feet_lmks):
     """
     canvas: numpy array of shape (H, W, 3)
-    feet_lmks: numpy array of shape (18, 3)
+    feet_lmks: numpy array of shape (6, 3)
     """
     # Draw footpose for scale matching
     lmks, scores = feet_lmks[:, :2], feet_lmks[:, 2]
     for lmk, _ in zip(lmks, scores):
         x, y = lmk.astype(np.int32)
         cv2.circle(canvas, (x, y), 3, (255, 255, 255), thickness=-1)
+    edges = [[2, 0], [2, 1], [5, 3], [5, 4]]
+    for e in edges:
+        x1, y1 = lmks[e[0]].astype(np.int32)
+        x2, y2 = lmks[e[1]].astype(np.int32)
+        cv2.line(canvas, (x1, y1), (x2, y2), (0, 0, 255), thickness=2)
     return canvas
 
 def draw_pose(pose, H, W, ref_w=2160, draw_feet=True):

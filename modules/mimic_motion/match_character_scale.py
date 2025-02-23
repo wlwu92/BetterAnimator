@@ -2,6 +2,7 @@ import shutil
 import argparse
 import logging
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 
@@ -24,7 +25,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(line
 logger = logging.getLogger(__name__)
 
 
-def match_character_scale(video_pose_dir, ref_image_path, ref_pose_path, resolution=576):
+def match_character_scale(video_pose_dir: str, ref_image_path: str, ref_pose_path: str, resolution: int = 576) -> Tuple[np.ndarray, bool]:
     image_pixels = pil_loader(ref_image_path)
     image_pixels = pil_to_tensor(image_pixels) # (c, h, w)
     h, w = image_pixels.shape[-2:]
@@ -48,18 +49,18 @@ def match_character_scale(video_pose_dir, ref_image_path, ref_pose_path, resolut
         min_x, max_x = np.where(col_sum > 0)[0][0], np.where(col_sum > 0)[0][-1]
         body_bbox_overlaps[min_y:max_y, min_x:max_x] += 1
 
-    xys = np.argwhere(body_bbox_overlaps > (len(pose_pixels) * 0.1))
+    xys = np.argwhere(body_bbox_overlaps > (len(pose_pixels) * 0.2))
     bbox = np.array([xys[:, 1].min(), xys[:, 0].min(), xys[:, 1].max(), xys[:, 0].max()])
 
     for pose_pixel in pose_pixels:
         mask = np.sum(pose_pixel, axis=0) == 0
         pose_pixel[:, mask] = image_pixels[:, mask]
 
-    if bbox[0] >= 0.0 * new_w and bbox[1] >= 0.05 * new_h and bbox[2] <= 1.0 * new_w and bbox[3] <= 0.95 * new_h:
+    if bbox[0] >= 0.01 * new_w and bbox[1] >= 0.05 * new_h and bbox[2] <= 0.99 * new_w and bbox[3] <= 0.95 * new_h:
         return pose_pixels, True
     return pose_pixels, False
 
-def add_gen_task(video_id: str, character_id: str, skip_if_exists: bool = False) -> None:
+def main(video_id: str, character_id: str, skip_if_exists: bool = False) -> None:
     character_dirs = []
     video_dirs = []
     if character_id == "all":
@@ -69,7 +70,7 @@ def add_gen_task(video_id: str, character_id: str, skip_if_exists: bool = False)
     if video_id == "all":
         video_dirs = sorted(Path(VIDEO_DIR).glob("*"))
     else:
-        video_dirs = [Path(VIDEO_DIR) / args.video_id]
+        video_dirs = [Path(VIDEO_DIR) / video_id]
 
     for character_dir in character_dirs:
         for video_dir in video_dirs:
@@ -85,12 +86,12 @@ def add_gen_task(video_id: str, character_id: str, skip_if_exists: bool = False)
             task_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Matching character {character_id} and video {video_id}")
             scale_files = sorted(character_dir.glob("character_x*.png"))
-            for scale_file in scale_files:
+            for i, scale_file in enumerate(scale_files):
                 scale_pose = scale_file.parent / "poses" / (scale_file.stem + ".json")
                 pose_pixels, is_matched = match_character_scale(str(video_pose_dir), str(scale_file), str(scale_pose))
                 preview_video_path = task_dir / f"{scale_file.stem}.mp4"
                 save_to_mp4(torch.tensor(pose_pixels), preview_video_path, fps=30)
-                if is_matched:
+                if is_matched or i == len(scale_files) - 1:
                     shutil.copy(scale_file, task_dir / "character.png")
                     shutil.copy(scale_pose, task_dir / "character_pose.json")
                     break
@@ -102,4 +103,4 @@ if __name__ == "__main__":
     parser.add_argument("--skip_if_exists", action="store_true")
 
     args = parser.parse_args()
-    add_gen_task(args.video_id, args.character_id, args.skip_if_exists)
+    main(args.video_id, args.character_id, args.skip_if_exists)
