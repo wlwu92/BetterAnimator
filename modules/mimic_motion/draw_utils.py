@@ -93,7 +93,19 @@ def draw_facepose(canvas, face_lmks):
             cv2.circle(canvas, (x, y), 3, (conf, conf, conf), thickness=-1)
     return canvas
 
-def draw_pose(pose, H, W, ref_w=2160):
+def draw_feetpose(canvas, feet_lmks):
+    """
+    canvas: numpy array of shape (H, W, 3)
+    feet_lmks: numpy array of shape (18, 3)
+    """
+    # Draw footpose for scale matching
+    lmks, scores = feet_lmks[:, :2], feet_lmks[:, 2]
+    for lmk, _ in zip(lmks, scores):
+        x, y = lmk.astype(np.int32)
+        cv2.circle(canvas, (x, y), 3, (255, 255, 255), thickness=-1)
+    return canvas
+
+def draw_pose(pose, H, W, ref_w=2160, draw_feet=True):
     """vis dwpose outputs
     """
     sz = min(H, W)
@@ -108,6 +120,10 @@ def draw_pose(pose, H, W, ref_w=2160):
     canvas = draw_bodypose(canvas, bodies)
     canvas = draw_handpose(canvas, hands)
     canvas = draw_facepose(canvas, faces)
+    if draw_feet:
+        feet = pose['feet'].copy()
+        feet[:, :2] = feet[:, :2] * sr
+        canvas = draw_feetpose(canvas, feet)
     return cv2.cvtColor(cv2.resize(canvas, (W, H)), cv2.COLOR_BGR2RGB)
 
     

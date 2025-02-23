@@ -48,7 +48,7 @@ def _pose_alignment(ref_body, video_bodies) -> Tuple[np.ndarray, np.ndarray]:
     b = np.array([bx, by])
     return a, b
 
-def generate_pose_pixels(ref_pose, video_poses, ref_width, ref_height):
+def generate_pose_pixels(ref_pose, video_poses, ref_width, ref_height, draw_feet=False):
     """
     Generate pose pixels from video poses and image pose.
     """
@@ -64,12 +64,12 @@ def generate_pose_pixels(ref_pose, video_poses, ref_width, ref_height):
         pose_parts['bodies'][:, :2] = pose_parts['bodies'][:, :2] * a + b
         pose_parts['hands'][:, :2] = pose_parts['hands'][:, :2] * a + b
         pose_parts['faces'][:, :2] = pose_parts['faces'][:, :2] * a + b
-        pose_parts['foot'][:, :2] = pose_parts['foot'][:, :2] * a + b
+        pose_parts['feet'][:, :2] = pose_parts['feet'][:, :2] * a + b
 
     # Draw pose
     # [H, W, 3]
-    ref_pose_pixel = draw_pose(ref_pose_parts, ref_height, ref_width)
+    ref_pose_pixel = draw_pose(ref_pose_parts, ref_height, ref_width, draw_feet=draw_feet)
     video_poses_pixels = [
-        draw_pose(pose_parts, ref_height, ref_width) for pose_parts in video_poses_parts]
+        draw_pose(pose_parts, ref_height, ref_width, draw_feet=draw_feet) for pose_parts in video_poses_parts]
     # [N, 3, H, W]
     return np.stack([ref_pose_pixel] + video_poses_pixels).transpose(0, 3, 1, 2)

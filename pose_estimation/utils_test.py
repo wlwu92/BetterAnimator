@@ -44,13 +44,13 @@ class TestLoadPose(unittest.TestCase):
         self.assertEqual(pose_parts['bodies'].shape[0], 18)
         self.assertEqual(pose_parts['hands'].shape[0], 42)
         self.assertEqual(pose_parts['faces'].shape[0], 68)
-        self.assertEqual(pose_parts['foot'].shape[0], 6)
+        self.assertEqual(pose_parts['feet'].shape[0], 6)
 
         image = Image.open(self.test_image_path)
         draw_image = draw_pose_on_image(image, pose_parts['bodies'], color=(255, 0, 0))
         draw_image = draw_pose_on_image(image, pose_parts['hands'], color=(0, 255, 0))
         draw_image = draw_pose_on_image(image, pose_parts['faces'], color=(0, 0, 255))
-        draw_image = draw_pose_on_image(image, pose_parts['foot'], color=(0, 255, 255))
+        draw_image = draw_pose_on_image(image, pose_parts['feet'], color=(0, 255, 255))
         draw_image.save('data/example_wholebody_image_draw_pose_parts.png')
 
 if __name__ == '__main__':
