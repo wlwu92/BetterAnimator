@@ -103,7 +103,7 @@ def gen_config(task_dir: Path) -> dict:
                     "end_frame_id": None
                 }
             ],
-            "output_folder": "",
+            "output_folder": str(task_dir / "diffutoon"),
             "fps": fps
         },
         "pipeline": {
