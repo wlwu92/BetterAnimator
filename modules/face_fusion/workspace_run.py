@@ -61,6 +61,7 @@ def run(task: Path, gpu_id: int = 0) -> subprocess.Popen:
         "--face-occluder-model", "xseg_2",
         "--execution-providers", "cuda",
         "--temp-path", str(task.resolve()),
+        "--keep-temp"
     ],
         cwd="third_party/facefusion",
         env={**os.environ, "CUDA_VISIBLE_DEVICES": str(gpu_id)}

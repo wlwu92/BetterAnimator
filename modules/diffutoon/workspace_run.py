@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import logging
 import torch
+import ffmpeg
 from concurrent.futures import ProcessPoolExecutor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
@@ -140,6 +141,11 @@ def _run_task(gpu_id, task_dir, task_conf):
         json.dump(task_conf, f, indent=4)
     with torch.cuda.device(gpu_id):
         runner.run(task_conf)
+    # ffmpeg compress the output video
+    result_file = task_dir / "diffutoon" / "video.mp4"
+    output_file = task_dir / "diffutoon.mp4"
+    stream = ffmpeg.input(str(result_file)).output(str(output_file))
+    stream.run(overwrite_output=True, quiet=True)
 
 def run(task_confs: list[tuple[Path, dict]]) -> None:
     """
