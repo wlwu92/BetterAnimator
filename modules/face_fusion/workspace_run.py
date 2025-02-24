@@ -5,10 +5,14 @@ Scan unprocessed face fusion tasks and run them in the workspace with the follow
 """
 
 import argparse
+import ffmpeg
 import logging
+import os
+import time
 from pathlib import Path
 import subprocess
-import ffmpeg
+
+import torch
 
 WORKSPACE_DIR = Path("data/workspace")
 TASK_DIR = WORKSPACE_DIR / "gens"
@@ -34,15 +38,15 @@ def upscale_video(video_file: str, output_file: str) -> None:
     video = video.filter("scale", "896", "-1", flags="lanczos").crop(0, start_y, 896, height)
     video.output(output_file, vcodec='libx264', crf=18, preset='slow').run(overwrite_output=True, quiet=True)
 
-def run(task: Path) -> None:
-    logger.info(f"Running: {task}")
+def run(task: Path, gpu_id: int = 0) -> subprocess.Popen:
+    logger.info(f"Running: {task} on GPU {gpu_id}")
     upscale_video(str(task / "mimic_motion.mp4"), str(task / "mimic_motion_upscaled.mp4"))
     # Use original character image as source for better face reference
     character_id = task.parent.name
     character_dir = CHARACTER_DIR / character_id
     character_path = character_dir / "character.png"
     assert character_path.exists(), f"Character image not found: {character_path}"
-    subprocess.run([
+    return subprocess.Popen([
         "./facefusion.py",
         "headless-run",
         "-s", str(character_path.resolve()),
@@ -56,7 +60,30 @@ def run(task: Path) -> None:
         "--face-mask-types", "occlusion",
         "--face-occluder-model", "xseg_2",
         "--execution-providers", "cuda",
-    ], cwd="third_party/facefusion")
+        "--temp-path", str(task.resolve()),
+    ],
+        cwd="third_party/facefusion",
+        env={**os.environ, "CUDA_VISIBLE_DEVICES": str(gpu_id)}
+    )
+
+def run_tasks(tasks: list[Path]) -> None:
+    num_tasks = len(tasks)
+    num_gpus = torch.cuda.device_count()
+
+    processors = {}
+    current_iter = 0
+    while current_iter < num_tasks:
+        for i in range(num_gpus):
+            if i not in processors or processors[i].poll() is not None:
+                if current_iter < num_tasks:
+                    processors[i] = run(tasks[current_iter], i)
+                    current_iter += 1
+        time.sleep(0.1)
+    for processor in processors.values():
+        try:
+            processor.wait()
+        except Exception as e:
+            logger.error(f"Error waiting for processor: {e}")
 
 def main(
     task_dir: str = "",
@@ -83,8 +110,7 @@ def main(
                 continue
             tasks.append(video_dir)
     logger.info(f"Found {len(tasks)} tasks")
-    for task in tasks:
-        run(task)
+    run_tasks(tasks)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
