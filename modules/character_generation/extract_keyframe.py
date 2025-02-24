@@ -79,6 +79,10 @@ def extract_keyframe(task_dir: str, character_id: str, video_id: str) -> None:
         candidate_videos = sorted(character_dir.glob("*")) \
             if not video_id else [character_dir / video_id]
         for video_dir in candidate_videos:
+            diffutoon_result = video_dir / "diffutoon.mp4"
+            if not diffutoon_result.exists():
+                logger.info(f"Diffutoon result not found: {video_dir}")
+                continue
             face_fusion_dir = video_dir / "facefusion" / "mimic_motion_upscaled"
             if not face_fusion_dir.exists():
                 logger.info(f"Face fusion not found: {video_dir}")
