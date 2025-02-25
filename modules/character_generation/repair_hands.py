@@ -128,6 +128,7 @@ def deblur_image(image_path: str, output_path: str, prompt: str = None, target_h
         generator=torch.Generator().manual_seed(0)
     ).images[0]
     deblurred_image.save(output_path)
+    return deblurred_image
 
 def repair_hands(image_path: str, pose_path: str, output_path: str, target_height: int = 1536) -> None:
     # Load image and pose
@@ -143,7 +144,6 @@ def repair_hands(image_path: str, pose_path: str, output_path: str, target_heigh
     pose[:, 1] *= scale_h
     pose = to_openpose_format(pose)
     pose_parts = get_pose_parts(pose)
-
     # Draw hands on image
     draw_image = draw_pose_on_image(image.copy(), pose_parts['hands'], color=(0, 255, 0))
     draw_image.save(os.path.join(output_path, f"{name}_hands.png"))

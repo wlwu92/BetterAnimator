@@ -55,7 +55,7 @@ def batch_pose_estimation(keyframe_paths: List[Path]) -> None:
             shutil.move(pose_dir / f"{video_id}_{character_id}.json", keyframe_path.parent / "keyframe_pose.json")
             shutil.move(pose_dir / f"{video_id}_{character_id}.png", keyframe_path.parent / "keyframe_pose.png")
 
-def repair_hands(keyframe_paths: List[Path]) -> None:
+def run_repair_hands(keyframe_paths: List[Path]) -> None:
     for keyframe_path in keyframe_paths:
         pose_path = keyframe_path.parent / "keyframe_pose.json"
         image_path = keyframe_path.parent / "keyframe.png"
@@ -79,6 +79,10 @@ def extract_keyframe(task_dir: str, character_id: str, video_id: str) -> None:
         candidate_videos = sorted(character_dir.glob("*")) \
             if not video_id else [character_dir / video_id]
         for video_dir in candidate_videos:
+            if (video_dir / "keyframe.png").exists():
+                logger.info(f"Keyframe already exists: {video_dir}")
+                collected_keyframes.append(video_dir / "keyframe.png")
+                continue
             diffutoon_result = video_dir / "diffutoon.mp4"
             if not diffutoon_result.exists():
                 logger.info(f"Diffutoon result not found: {video_dir}")
@@ -105,7 +109,7 @@ def extract_keyframe(task_dir: str, character_id: str, video_id: str) -> None:
             collected_keyframes.append(video_dir / "keyframe.png")
     if collected_keyframes:
         batch_pose_estimation(collected_keyframes)
-        repair_hands(collected_keyframes)
+        run_repair_hands(collected_keyframes)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
