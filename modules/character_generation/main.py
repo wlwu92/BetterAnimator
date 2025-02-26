@@ -9,7 +9,7 @@ from modules.character_generation.animate_image import animate_image, animate_im
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-from modules.character_generation.repair_hands import repair_hands, deblur_image
+from modules.character_generation.repair_hands import repair_by_pose_parts, deblur_image
 from modules.character_generation.generate_character_scales import generate_character_scales
 
 WORKSPACE_DIR = "data/workspace/"
@@ -147,8 +147,10 @@ def deblur(image_path, output_dir, prompt):
 @click.option('--image_path', type=str, required=True, help='Image path or image directory')
 @click.option('--pose_path', type=str, required=True, help='Pose path or pose directory')
 @click.option('--output_dir', type=str, required=True, help='Path to the output file')
+@click.option('--fix_parts', type=str, default="hands", help='Parts to fix, e.g. hands, left_hand, right_hand, feet, left_foot, right_foot')
+@click.option('--mask_padding', type=int, default=5, help='Padding of the mask')
 @click.option('--target_height', type=int, default=1536, help='Target height of the output image')
-def repair(image_path, pose_path, output_dir, target_height):
+def repair(image_path, pose_path, output_dir, fix_parts, mask_padding, target_height):
     """
     Repair images using the specified image path, pose path, and output directory.
     """
@@ -170,7 +172,7 @@ def repair(image_path, pose_path, output_dir, target_height):
     os.makedirs(output_dir, exist_ok=True)
     for image_path, pose_path in zip(image_list, pose_list):
         logger.info(f"Processing image: {image_path} and pose: {pose_path}")
-        repair_hands(image_path, pose_path, output_dir, target_height)
+        repair_by_pose_parts(image_path, pose_path, output_dir, fix_parts, mask_padding=mask_padding, target_height=target_height)
 
 if __name__ == "__main__":
     main()

@@ -28,30 +28,26 @@ from pose_estimation.utils import (
     to_openpose_format,
 )
 
-def get_hands_mask(hands: np.ndarray, image_size: tuple) -> Image.Image:
+def get_keypoints_polygon_mask(keypoints_list: list[np.ndarray], image_size: tuple) -> Image.Image:
     """
-    Get the hands mask from the pose parts.
+    Get the polygon mask from the keypoints.
     """
-    def _get_polygon(hands: np.ndarray) -> np.ndarray:
+    def _get_polygon(keypoints: np.ndarray) -> np.ndarray:
         """
-        Get the polygon for the hands.
+        Get the polygon for the keypoints.
         """
         # Get the convex hull of the hands
-        hull = ConvexHull(hands)
-        return hands[hull.vertices]
-    hands_mask = Image.new('L', image_size, 0)
-    # Generate polygon for left, right hands
-    left_hands = hands[0:21, :2].astype(np.int32)
-    right_hands = hands[21:42, :2].astype(np.int32)
-    left_hand_polygon = _get_polygon(left_hands)
-    right_hand_polygon = _get_polygon(right_hands)
-    left_hand_coords = [(int(x), int(y)) for x, y in left_hand_polygon]
-    right_hand_coords = [(int(x), int(y)) for x, y in right_hand_polygon]
-    # Draw polygon on mask
-    draw = ImageDraw.Draw(hands_mask)
-    draw.polygon(left_hand_coords, fill=255)
-    draw.polygon(right_hand_coords, fill=255)
-    return hands_mask
+        hull = ConvexHull(keypoints)
+        return keypoints[hull.vertices]
+    keypoints_mask = Image.new('L', image_size, 0)
+    for keypoints in keypoints_list:
+        # Generate polygon for left, right hands
+        keypoints_polygon = _get_polygon(keypoints[:, :2])
+        keypoints_coords = [(int(x), int(y)) for x, y in keypoints_polygon]
+        # Draw polygon on mask
+        draw = ImageDraw.Draw(keypoints_mask)
+        draw.polygon(keypoints_coords, fill=255)
+    return keypoints_mask
 
 def expand_mask(mask: Image.Image, kernel_size: int = 3, iterations: int = 1) -> Image.Image:
     """
@@ -130,7 +126,37 @@ def deblur_image(image_path: str, output_path: str, prompt: str = None, target_h
     deblurred_image.save(output_path)
     return deblurred_image
 
-def repair_hands(image_path: str, pose_path: str, output_path: str, target_height: int = 1536) -> None:
+def get_repair_parts_points(pose_parts: dict, repair_parts: str) -> dict:
+    """
+    Get the repair parts points from the pose parts.
+    """
+    repair_parts = repair_parts.split(',')
+    decoded_parts = []
+    for repair_part in repair_parts:
+        assert repair_part in ['hands', 'left_hand', 'right_hand', 'feet', 'left_foot', 'right_foot']
+        if repair_part == 'hands':
+            decoded_parts.extend(['left_hand', 'right_hand'])
+        elif repair_part == 'feet':
+            decoded_parts.extend(['left_foot', 'right_foot'])
+        else:
+            decoded_parts.append(repair_part)
+
+    repair_parts_points = {}
+    for part in decoded_parts:
+        if part == 'left_hand':
+            points = np.vstack([pose_parts['hands'][0:21], pose_parts['bodies'][7]])
+        elif part == 'right_hand':
+            points = np.vstack([pose_parts['hands'][21:42], pose_parts['bodies'][4]])
+        elif part == 'left_foot':
+            points = pose_parts['feet'][0:3]
+        elif part == 'right_foot':
+            points = pose_parts['feet'][3:6]
+        else:
+            raise ValueError(f"Invalid repair part: {part}")
+        repair_parts_points[part] = points
+    return repair_parts_points
+
+def repair_by_pose_parts(image_path: str, pose_path: str, output_path: str, fix_parts: str, mask_padding: int = 5, target_height: int = 1536) -> None:
     # Load image and pose
     image = Image.open(image_path)
     name = os.path.basename(image_path).split('.')[0]
@@ -145,36 +171,40 @@ def repair_hands(image_path: str, pose_path: str, output_path: str, target_heigh
     pose = to_openpose_format(pose)
     pose_parts = get_pose_parts(pose)
     # Draw hands on image
-    draw_image = draw_pose_on_image(image.copy(), pose_parts['hands'], color=(0, 255, 0))
-    draw_image.save(os.path.join(output_path, f"{name}_hands.png"))
+    repair_parts_points = get_repair_parts_points(pose_parts, fix_parts)
+    for part, points in repair_parts_points.items():
+        draw_image = draw_pose_on_image(image.copy(), points, color=(0, 255, 0))
+        draw_image.save(os.path.join(output_path, f"{name}_{part}.png"))
 
     # Get hands mask
-    hands_mask = get_hands_mask(pose_parts['hands'], image.size)
-    hands_mask.save(os.path.join(output_path, f"{name}_hands_mask.png"))
+    keypoints_masks = get_keypoints_polygon_mask(repair_parts_points.values(), image.size)
+    keypoints_masks.save(os.path.join(output_path, f"{name}_keypoints_masks.png"))
     image_with_mask = image.copy()
-    image_with_mask.paste(hands_mask, (0, 0), hands_mask)
+    image_with_mask.paste(keypoints_masks, (0, 0), keypoints_masks)
     image_with_mask.save(os.path.join(output_path, f"{name}_image_with_mask.png"))
 
-    expanded_hands_mask = expand_mask(hands_mask, kernel_size=8, iterations=5)
-    expanded_hands_mask.save(os.path.join(output_path, f"{name}_expanded_hands_mask.png"))
-    expanded_hands_mask = expanded_hands_mask.filter(ImageFilter.GaussianBlur(radius=5))
-    expanded_hands_mask.save(os.path.join(output_path, f"{name}_expanded_hands_mask_blur.png"))
+    expanded_keypoints_masks = expand_mask(keypoints_masks, kernel_size=8, iterations=mask_padding)
+    expanded_keypoints_masks.save(os.path.join(output_path, f"{name}_expanded_keypoints_masks.png"))
+    expanded_keypoints_masks = expanded_keypoints_masks.filter(ImageFilter.GaussianBlur(radius=5))
+    expanded_keypoints_masks.save(os.path.join(output_path, f"{name}_expanded_keypoints_masks_blur.png"))
     image_with_mask = image.copy()
-    image_with_mask.paste(expanded_hands_mask, (0, 0), expanded_hands_mask)
+    image_with_mask.paste(expanded_keypoints_masks, (0, 0), expanded_keypoints_masks)
     image_with_mask.save(os.path.join(output_path, f"{name}_image_with_expanded_mask.png"))
     
-    # Inpaint hands
+    # Inpaint 
     if inpaint_pipe is None:
         load_inpaint_pipe()
     inpainted_image = inpaint_pipe(
         # prompt="Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",
         prompt="",
         image=image,
-        mask_image=expanded_hands_mask.convert('RGB'),
+        mask_image=expanded_keypoints_masks.convert('RGB'),
         num_inference_steps=20,
-        guidance_scale=30,
+        guidance_scale=3.5,
         height=image.height,
         width=image.width,
         generator=torch.Generator().manual_seed(0)
     ).images[0]
-    inpainted_image.save(os.path.join(output_path, f"{name}.png"))
+    inpainted_image.save(os.path.join(output_path, f"{name}_inpainted.png"))
+    # deblur the inpainted image
+    deblur_image(os.path.join(output_path, f"{name}_inpainted.png"), os.path.join(output_path, f"{name}.png"), prompt="", target_height=target_height)
