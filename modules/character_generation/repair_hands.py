@@ -19,7 +19,11 @@ def load_deblur_pipe():
 inpaint_pipe = None
 def load_inpaint_pipe():
     global inpaint_pipe
-    inpaint_pipe = flux_fill_pipe(lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors", enable_multi_gpu=MULTI_DEVICE_INFERENCE)
+    inpaint_pipe = flux_fill_pipe(
+        lora_name="models/FLUX/F.1_FitnessTrainer_lora_v1.0.safetensors",
+        enable_multi_gpu=MULTI_DEVICE_INFERENCE,
+        use_quantization=False
+    )
 
 from pose_estimation.utils import (
     load_pose,
@@ -156,7 +160,15 @@ def get_repair_parts_points(pose_parts: dict, repair_parts: str) -> dict:
         repair_parts_points[part] = points
     return repair_parts_points
 
-def repair_by_pose_parts(image_path: str, pose_path: str, output_path: str, fix_parts: str, mask_padding: int = 5, target_height: int = 1536) -> None:
+def repair_by_pose_parts(
+    image_path: str,
+    pose_path: str,
+    output_path: str,
+    fix_parts: str,
+    mask_padding: int = 5,
+    target_height: int = 1536,
+    num_images_per_prompt: int = 1,
+    prompt: str = "Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand") -> None:
     # Load image and pose
     image = Image.open(image_path)
     name = os.path.basename(image_path).split('.')[0]
@@ -178,14 +190,12 @@ def repair_by_pose_parts(image_path: str, pose_path: str, output_path: str, fix_
 
     # Get hands mask
     keypoints_masks = get_keypoints_polygon_mask(repair_parts_points.values(), image.size)
-    keypoints_masks.save(os.path.join(output_path, f"{name}_keypoints_masks.png"))
     image_with_mask = image.copy()
     image_with_mask.paste(keypoints_masks, (0, 0), keypoints_masks)
     image_with_mask.save(os.path.join(output_path, f"{name}_image_with_mask.png"))
 
     expanded_keypoints_masks = expand_mask(keypoints_masks, kernel_size=8, iterations=mask_padding)
-    expanded_keypoints_masks.save(os.path.join(output_path, f"{name}_expanded_keypoints_masks.png"))
-    expanded_keypoints_masks = expanded_keypoints_masks.filter(ImageFilter.GaussianBlur(radius=5))
+    expanded_keypoints_masks = expanded_keypoints_masks.filter(ImageFilter.GaussianBlur(radius=12))
     expanded_keypoints_masks.save(os.path.join(output_path, f"{name}_expanded_keypoints_masks_blur.png"))
     image_with_mask = image.copy()
     image_with_mask.paste(expanded_keypoints_masks, (0, 0), expanded_keypoints_masks)
@@ -194,17 +204,27 @@ def repair_by_pose_parts(image_path: str, pose_path: str, output_path: str, fix_
     # Inpaint 
     if inpaint_pipe is None:
         load_inpaint_pipe()
-    inpainted_image = inpaint_pipe(
-        # prompt="Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",
-        prompt="",
-        image=image,
-        mask_image=expanded_keypoints_masks.convert('RGB'),
-        num_inference_steps=20,
-        guidance_scale=3.5,
-        height=image.height,
-        width=image.width,
-        generator=torch.Generator().manual_seed(0)
-    ).images[0]
-    inpainted_image.save(os.path.join(output_path, f"{name}_inpainted.png"))
-    # deblur the inpainted image
-    deblur_image(os.path.join(output_path, f"{name}_inpainted.png"), os.path.join(output_path, f"{name}.png"), prompt="", target_height=target_height)
+    seed = 42
+    for i in range(num_images_per_prompt):
+        for num_inference_steps in [15]:
+            for guidance_scale in [15]:
+                inpainted_images = inpaint_pipe(
+                    prompt=prompt,
+                    image=image,
+                    mask_image=expanded_keypoints_masks.convert('RGB'),
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    height=image.height,
+                    width=image.width,
+                    num_images_per_prompt=num_images_per_prompt,
+                    generator=torch.Generator().manual_seed(seed)
+                ).images
+                for i, inpainted_image in enumerate(inpainted_images):
+                    inpainted_image.save(os.path.join(output_path, f"{name}_inpainted_{i}_{seed}_{num_inference_steps}_{guidance_scale}.png"))
+                    # Paste the inpainted image on the original image according to the expanded mask
+                    paste_image = image.copy()
+                    paste_image.paste(inpainted_image, (0, 0), expanded_keypoints_masks)
+                    paste_image.save(os.path.join(output_path, f"{name}_inpainted_on_original_{i}_{seed}_{num_inference_steps}_{guidance_scale}.png"))
+
+        import random
+        seed = random.randint(0, 1000000)
