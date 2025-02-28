@@ -134,4 +134,6 @@ def sd_controlnet_img2img_pipe_v2(
             for unit in control_units
         ],
     )
+    if textual_inversion_path is not None:
+        pipe.prompter.load_textual_inversions([textual_inversion_path])
     return pipe

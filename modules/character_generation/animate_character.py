@@ -10,6 +10,7 @@ def animate_image_random_seed(image_path, prompt, negative_prompt, output_path, 
     pipe = sd_controlnet_img2img_pipe_v2(
         model_path="./models/stable_diffusion/aingdiffusion_v12.safetensors",
         control_units=["tile", "lineart"],
+        textual_inversion_path="./models/textual_inversion/verybadimagenegative_v1.3.pt",
     )
     image = Image.open(image_path)
     width, height = image.size
@@ -39,6 +40,7 @@ def animate_image(image_path, prompt, negative_prompt, output_path, seed=0):
     pipe = sd_controlnet_img2img_pipe_v2(
         model_path="./models/stable_diffusion/aingdiffusion_v12.safetensors",
         control_units=["tile", "lineart"],
+        textual_inversion_path="./models/textual_inversion/verybadimagenegative_v1.3.pt",
     )
     image = Image.open(image_path)
     width, height = image.size

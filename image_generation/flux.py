@@ -29,7 +29,8 @@ class MultiDevicePipelineBase:
         self._vae = None
         self._transformer = None
         # TODO(wanglong): Support lora name for multi-device inference
-        assert lora_name == "", "Lora name is not supported for multi-device inference"
+        if lora_name != "":
+            print("Lora name is not supported for multi-device inference")
         self.lora_name = lora_name
         self.model_name = flux_pipeline_info_map[pipeline_type]
 
@@ -284,6 +285,7 @@ class MultiDeviceFluxFillPipeline(MultiDevicePipelineBase):
         guidance_scale: float = 3.5,
         max_sequence_length: int = 512,
         generator: torch.Generator = None,
+        num_images_per_prompt: int = 1,
     ) -> FluxPipelineOutput:
         prompt_embeds, pooled_prompt_embeds, text_ids, masked_image_latents = \
             self._encode_prompt_and_prepare_mask_latents(
