@@ -108,7 +108,7 @@ def get_crop_bbox(
         y = height - h
     return x, y, x + w, y + h
 
-def deblur_image(image_path: str, output_path: str, prompt: str = None, target_height: int = 1536):
+def deblur_image(image_path: str, output_path: str, prompt: str = None, target_height: int = 1536, seed: int = 0):
     image = Image.open(image_path)
     height = image.height
     width = image.width
@@ -125,7 +125,7 @@ def deblur_image(image_path: str, output_path: str, prompt: str = None, target_h
         strength=0.3,
         height=target_height,
         width=target_width,
-        generator=torch.Generator().manual_seed(0)
+        generator=torch.Generator().manual_seed(seed)
     ).images[0]
     deblurred_image.save(output_path)
     return deblurred_image

@@ -16,10 +16,9 @@ from mimicmotion.utils.utils import save_to_mp4
 from modules.mimic_motion.preprocess import (
     load_image_pose, load_video_pose, generate_pose_pixels
 )
+from pose_estimation.sapiens_wholebody import detect as sapiens_detect
+from common.constant import CHARACTER_DIR, VIDEO_DIR, TASK_DIR
 
-CHARACTER_DIR = "data/workspace/characters"
-VIDEO_DIR = "data/workspace/videos"
-TASK_DIR = "data/workspace/gens"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -64,30 +63,31 @@ def main(video_id: str, character_id: str, skip_if_exists: bool = False) -> None
     character_dirs = []
     video_dirs = []
     if character_id == "all":
-        character_dirs = sorted(Path(CHARACTER_DIR).glob("*"))
+        character_dirs = sorted(CHARACTER_DIR.glob("*"))
     else:
-        character_dirs = [Path(CHARACTER_DIR) / character_id]
+        character_dirs = [CHARACTER_DIR / character_id]
     if video_id == "all":
-        video_dirs = sorted(Path(VIDEO_DIR).glob("*"))
+        video_dirs = sorted(VIDEO_DIR.glob("*"))
     else:
-        video_dirs = [Path(VIDEO_DIR) / video_id]
+        video_dirs = [VIDEO_DIR / video_id]
 
     for character_dir in character_dirs:
         for video_dir in video_dirs:
             character_id = character_dir.stem
             video_id = video_dir.stem
             video_pose_dir = video_dir / "poses"
-            task_dir = Path(TASK_DIR) / character_id / video_id
+            task_dir = TASK_DIR / character_id / video_id / "1_character"
             if skip_if_exists and task_dir.exists():
-                if (task_dir / "character.png").exists() \
-                    and (task_dir / "character_pose.json").exists():
-                    logger.info(f"Task {task_dir} already exists, skipping")
-                    continue
+                logger.info(f"Task {task_dir} already exists, skipping")
+                continue
             task_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Matching character {character_id} and video {video_id}")
             scale_files = sorted(character_dir.glob("character_x*.png"))
             for i, scale_file in enumerate(scale_files):
                 scale_pose = scale_file.parent / "poses" / (scale_file.stem + ".json")
+                if not scale_pose.exists():
+                    logger.info(f"No pose exists for {scale_file}, detecting pose")
+                    sapiens_detect(scale_file, scale_pose)
                 pose_pixels, is_matched = match_character_scale(str(video_pose_dir), str(scale_file), str(scale_pose))
                 preview_video_path = task_dir / f"{scale_file.stem}.mp4"
                 save_to_mp4(torch.tensor(pose_pixels), preview_video_path, fps=30)

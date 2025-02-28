@@ -11,16 +11,16 @@ from pathlib import Path
 from typing import List
 import yaml
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
+
+multiprocessing.set_start_method('spawn', force=True)
 
 import torch
 
+from common.constant import WORKSPACE_DIR, TASK_DIR, VIDEO_DIR
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
-
-WORKSPACE_DIR = Path("data/workspace")
-TASK_DIR = WORKSPACE_DIR / "gens"
-VIDEO_DIR = WORKSPACE_DIR / "videos"
-
 
 def gen_mimic_motion_conf(
     tasks: List[Path],
@@ -49,11 +49,13 @@ def gen_mimic_motion_conf(
 
     for task in tasks:
         video_id = task.name
+        input_dir = task / "1_character"
+        output_dir = task / "2_mimic_motion"
         test_case = {
             "video_pose_dir": str(VIDEO_DIR / video_id / "poses"),
-            "ref_image_path": str(task / "character.png"),
-            "ref_pose_path": str(task / "character_pose.json"),
-            "output_path": str(task / "mimic_motion.mp4"),
+            "ref_image_path": str(input_dir / "character.png"),
+            "ref_pose_path": str(input_dir / "character_pose.json"),
+            "output_path": str(output_dir / "mimic_motion.mp4"),
             "num_frames": num_frames,
             "resolution": resolution,
             "frames_overlap": 6,
@@ -127,12 +129,13 @@ def main(
         candidate_videos = sorted(character_dir.glob("*")) \
             if not video_id else [character_dir / video_id]
         for video_dir in candidate_videos:
-            if not (video_dir / "character.png").exists() or not (video_dir / "character_pose.json").exists():
+            input_dir = video_dir / "1_character"
+            output_dir = video_dir / "2_mimic_motion"
+            if not (input_dir / "character.png").exists() or not (input_dir / "character_pose.json").exists():
                 logger.info(f"Invalid task: {video_dir}")
                 continue
-            result_path = video_dir / "mimic_motion.mp4"
-            if skip_if_exists and result_path.exists():
-                logger.info(f"Task {video_dir} already exists, skipping")
+            if skip_if_exists and output_dir.exists():
+                logger.info(f"Task {output_dir} already exists, skipping")
                 continue
             tasks.append(video_dir)
     run(tasks, num_frames, resolution)
