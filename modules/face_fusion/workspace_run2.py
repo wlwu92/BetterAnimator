@@ -14,9 +14,7 @@ import subprocess
 
 import torch
 
-WORKSPACE_DIR = Path("data/workspace")
-TASK_DIR = WORKSPACE_DIR / "gens"
-CHARACTER_DIR = WORKSPACE_DIR / "characters"
+from common.constant import TASK_DIR, CHARACTER_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -40,7 +38,11 @@ def upscale_video(video_file: str, output_file: str) -> None:
 
 def run(task: Path, gpu_id: int = 0) -> subprocess.Popen:
     logger.info(f"Running: {task} on GPU {gpu_id}")
-    upscale_video(str(task / "mimic_motion.mp4"), str(task / "mimic_motion_upscaled.mp4"))
+    input_file = task / "5_mimic_motion" / "mimic_motion.mp4"
+    upscale_file = task / "6_face_fusion" / "mimic_motion_upscaled.mp4"
+    output_file = task / "6_face_fusion" / "face_fusion.mp4"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    upscale_video(str(input_file), str(upscale_file))
     # Use original character image as source for better face reference
     character_id = task.parent.name
     character_dir = CHARACTER_DIR / character_id
@@ -50,8 +52,8 @@ def run(task: Path, gpu_id: int = 0) -> subprocess.Popen:
         "./facefusion.py",
         "headless-run",
         "-s", str(character_path.resolve()),
-        "-t", str((task / "mimic_motion_upscaled.mp4").resolve()),
-        "-o", str((task / "face_fusion.mp4").resolve()),
+        "-t", str(upscale_file.resolve()),
+        "-o", str(output_file.resolve()),
         "--processors", "face_swapper", "expression_restorer", "face_enhancer",
         "--face-detector-model", "scrfd",
         "--face-detector-score", "0.2",
@@ -60,7 +62,7 @@ def run(task: Path, gpu_id: int = 0) -> subprocess.Popen:
         "--face-mask-types", "occlusion",
         "--face-occluder-model", "xseg_2",
         "--execution-providers", "cuda",
-        "--temp-path", str(task.resolve()),
+        "--temp-path", str((task / "6_face_fusion").resolve()),
         "--keep-temp"
     ],
         cwd="third_party/facefusion",
@@ -103,10 +105,12 @@ def main(
         candidate_videos = sorted(character_dir.glob("*")) \
             if not video_id else [character_dir / video_id]
         for video_dir in candidate_videos:
-            if not (video_dir / "mimic_motion.mp4").exists():
+            input_dir = video_dir / "5_mimic_motion"
+            output_dir = video_dir / "6_face_fusion"
+            if not (input_dir / "mimic_motion.mp4").exists():
                 logger.info(f"Missing mimic motion: {video_dir}")
                 continue
-            if (video_dir / "face_fusion.mp4").exists() and skip_if_exists:
+            if (output_dir / "face_fusion.mp4").exists() and skip_if_exists:
                 logger.info(f"Skipping: {video_dir}")
                 continue
             tasks.append(video_dir)

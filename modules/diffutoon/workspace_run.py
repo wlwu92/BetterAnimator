@@ -10,21 +10,20 @@ import logging
 import torch
 import ffmpeg
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
+
+from common.constant import VIDEO_DIR, TASK_DIR, CHARACTER_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-WORKSPACE_DIR = Path("data/workspace")
-TASK_DIR = WORKSPACE_DIR / "gens"
-CHARACTER_DIR = WORKSPACE_DIR / "characters"
-
-
+multiprocessing.set_start_method('spawn', force=True)
 
 def gen_config(task_dir: Path) -> dict:
     """
     Generate a config for a given task directory.
     """
-    video_file = task_dir / "face_fusion.mp4"
+    video_file = task_dir / "6_face_fusion" / "face_fusion.mp4"
     assert video_file.exists(), f"Video file not found: {video_file}"
     assert task_dir.parent.parent == TASK_DIR, f"Invalid task directory: {task_dir}"
     video_id = task_dir.name
@@ -42,7 +41,7 @@ def gen_config(task_dir: Path) -> dict:
         seed = prompt_json["seed"]
 
     # Get fps
-    video_dir = WORKSPACE_DIR / "videos" / video_id
+    video_dir = VIDEO_DIR / video_id
     video_info_file = video_dir / "video_info.json"
     with open(video_info_file, "r") as f:
         video_info = json.load(f)
@@ -104,7 +103,7 @@ def gen_config(task_dir: Path) -> dict:
                     "end_frame_id": None
                 }
             ],
-            "output_folder": str(task_dir / "diffutoon"),
+            "output_folder": str(task_dir / "7_diffutoon"),
             "fps": fps
         },
         "pipeline": {
@@ -137,13 +136,15 @@ def _run_task(gpu_id, task_dir, task_conf):
     from diffsynth import SDVideoPipelineRunner
     runner = SDVideoPipelineRunner()
     logger.info(f"Running: {task_dir} on GPU {gpu_id}")
-    with open(task_dir / "diffutoon_config.json", "w") as f:
+    output_dir = task_dir / "7_diffutoon"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with open(output_dir / "diffutoon_config.json", "w") as f:
         json.dump(task_conf, f, indent=4)
     with torch.cuda.device(gpu_id):
         runner.run(task_conf)
     # ffmpeg compress the output video
-    result_file = task_dir / "diffutoon" / "video.mp4"
-    output_file = task_dir / "diffutoon.mp4"
+    result_file = output_dir / "video.mp4"
+    output_file = output_dir / "diffutoon.mp4"
     stream = ffmpeg.input(str(result_file)).output(str(output_file))
     stream.run(overwrite_output=True, quiet=True)
 
@@ -181,11 +182,11 @@ def main(
         candidate_videos = sorted(character_dir.glob("*")) \
             if not video_id else [character_dir / video_id]
         for video_dir in candidate_videos:
-            diffutoon_file = video_dir / "diffutoon.mp4"
+            diffutoon_file = video_dir / "7_diffutoon" / "diffutoon.mp4"
             if diffutoon_file.exists() and skip_if_exists:
                 logger.info(f"Diffutoon file already exists: {diffutoon_file}")
                 continue
-            face_fusion_file = video_dir / "face_fusion.mp4"
+            face_fusion_file = video_dir / "6_face_fusion" / "face_fusion.mp4"
             if not face_fusion_file.exists():
                 logger.info(f"Face fusion file not found: {face_fusion_file}")
                 continue

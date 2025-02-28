@@ -36,11 +36,6 @@ def gen_mimic_motion_conf(
     Returns:
         Path to the generated configuration file
     """
-    conf_dir = Path(WORKSPACE_DIR) / "logs" / "mimic_motion"
-    conf_dir.mkdir(parents=True, exist_ok=True)
-    conf_name = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml"
-    conf_path = conf_dir / conf_name
-
     config = {
         "base_model_path": "models/stable_video_diffusion",
         "ckpt_path": "models/MimicMotion/MimicMotion_1-1.pth",
