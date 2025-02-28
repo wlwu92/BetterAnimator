@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 import numpy as np
 import cv2
@@ -10,9 +11,9 @@ import torch
 from image_generation.flux import flux_fill_pipe
 
 reference_scales_params = {
-    "x1": [25, 5],
-    "x2": [37.5, 10],
-    "x3": [50, 15]
+    "x1": [28, 8],
+    "x2": [40, 12],
+    "x3": [52, 16]
 }
 
 MULTI_DEVICE_INFERENCE = os.environ.get("MULTI_DEVICE_INFERENCE", "0") == "1"
@@ -157,7 +158,7 @@ def generate_character_scales(
     character_dir: str,
     update_scale: str = None,
     num_inference_steps: int = 2) -> None:
-    base_image_path = os.path.join(character_dir, "character.png")
+    base_image_path = Path(character_dir) / "character.png"
     result = image_detect_one_object(base_image_path)
     object_bbox = get_object_bbox(result)
     image = Image.open(base_image_path)
@@ -186,4 +187,4 @@ def generate_character_scales(
             transformed_object_bbox,
             num_inference_steps=num_inference_steps
         )
-        outpainted_image.save(f"{character_dir}/character_{scale}.png")
+        outpainted_image.save(Path(character_dir) / f"character_{scale}.png")

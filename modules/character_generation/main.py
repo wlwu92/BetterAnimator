@@ -10,7 +10,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 from modules.character_generation.repair_hands import repair_by_pose_parts, deblur_image
-from modules.character_generation.generate_character_scales import generate_character_scales
 
 WORKSPACE_DIR = "data/workspace/"
 CHARACTER_DIR = os.path.join(WORKSPACE_DIR, "characters")
@@ -18,44 +17,6 @@ CHARACTER_DIR = os.path.join(WORKSPACE_DIR, "characters")
 @click.group()
 def main():
     pass
-
-@main.command()
-@click.option('--image_path', type=str, required=True, help='Character image path')
-@click.option('--character_id', type=str, default=None, help='Character id')
-def add_character(image_path, character_id):
-    """
-    Add a character to the character database and generate different scale by outpainting.
-    """
-    # Generate character id from image path
-    if character_id is None:
-        characters = sorted(os.listdir(CHARACTER_DIR))
-        character_id = 0 if len(characters) == 0 else int(characters[-1]) + 1
-        character_id = f"{character_id:06d}"
-    character_dir = os.path.join(CHARACTER_DIR, character_id)
-    if os.path.exists(character_dir):
-        logger.error(f"Character directory {character_dir} already exists")
-        return
-    os.makedirs(character_dir, exist_ok=True)
-    shutil.copy(image_path, os.path.join(character_dir, "character.png"))
-    # Create character directory
-    generate_character_scales(character_dir)
-
-@main.command()
-@click.option('--character_id', type=str, required=True, help='Character id')
-@click.option('--image_path', type=str, default=None, help='Character image path')
-@click.option('--update_scale', type=str, default=None, help='Update scale, e.g. x1, x2, x3')
-@click.option('--num_inference_steps', type=int, default=2, help='Number of inference steps')
-def update_character(character_id, image_path, update_scale, num_inference_steps):
-    """
-    Update a character in the character database and generate different scale by outpainting.
-    """
-    character_dir = os.path.join(CHARACTER_DIR, character_id)
-    assert os.path.exists(character_dir), f"Character directory {character_dir} does not exist"
-    if image_path is not None:
-        shutil.copy(image_path, os.path.join(character_dir, "character.png"))
-    # Create character directory
-    generate_character_scales(
-        character_dir, update_scale=update_scale, num_inference_steps=num_inference_steps)
 
 
 @main.command()

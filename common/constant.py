@@ -1,3 +1,4 @@
+from pathlib import Path
 
 HUGGINGFACE_CACHE_DIR = "./models/huggingface"
 
@@ -10,3 +11,9 @@ if DEVICE is None:
         DEVICE = "cuda"
     else:
         raise ValueError("No device available")
+
+WORKSPACE_DIR = Path("./data/workspace")
+CHARACTER_DIR = WORKSPACE_DIR / "characters"
+TASK_DIR = WORKSPACE_DIR / "gens"
+VIDEO_DIR = WORKSPACE_DIR / "videos"
+MANUAL_DIR = WORKSPACE_DIR / "manual"
