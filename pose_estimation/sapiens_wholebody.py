@@ -26,4 +26,4 @@ def detect(image_path: str, output_path: str) -> np.ndarray:
         assert result_path.exists(), f"Pose estimation result file not found: {result_path}"
         output_dir = Path(output_path).parent
         output_dir.mkdir(parents=True, exist_ok=True)
-        result_path.rename(output_path)
+        shutil.copy(result_path, output_path)

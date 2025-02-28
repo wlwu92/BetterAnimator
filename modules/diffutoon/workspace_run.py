@@ -145,7 +145,12 @@ def _run_task(gpu_id, task_dir, task_conf):
     # ffmpeg compress the output video
     result_file = output_dir / "video.mp4"
     output_file = output_dir / "diffutoon.mp4"
-    stream = ffmpeg.input(str(result_file)).output(str(output_file))
+    stream = ffmpeg.input(str(result_file)).output(
+        str(output_file),
+        vcodec="libx264",
+        crf=23,
+        preset="medium"
+    )
     stream.run(overwrite_output=True, quiet=True)
 
 def run(task_confs: list[tuple[Path, dict]]) -> None:

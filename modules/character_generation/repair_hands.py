@@ -168,6 +168,8 @@ def repair_by_pose_parts(
     mask_padding: int = 5,
     target_height: int = 1536,
     num_images_per_prompt: int = 1,
+    num_inference_steps: int = 15,
+    guidance_scale: int = 15,
     prompt: str = "Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",
     seed: int = 42
 ) -> None:
@@ -202,22 +204,21 @@ def repair_by_pose_parts(
     # Inpaint 
     if inpaint_pipe is None:
         load_inpaint_pipe()
-    for num_inference_steps in [15]:
-        for guidance_scale in [15]:
-            inpainted_images = inpaint_pipe(
-                prompt=prompt,
-                image=image,
-                mask_image=expanded_keypoints_masks.convert('RGB'),
-                num_inference_steps=num_inference_steps,
-                guidance_scale=guidance_scale,
-                height=image.height,
-                width=image.width,
-                num_images_per_prompt=num_images_per_prompt,
-                generator=torch.Generator().manual_seed(seed)
-            ).images
-            for i, inpainted_image in enumerate(inpainted_images):
-                inpainted_image.save(os.path.join(output_path, f"{name}_inpainted_{seed}_{i}_{num_inference_steps}_{guidance_scale}.png"))
-                # Paste the inpainted image on the original image according to the expanded mask
-                paste_image = image.copy()
-                paste_image.paste(inpainted_image, (0, 0), expanded_keypoints_masks)
-                paste_image.save(os.path.join(output_path, f"{name}_inpainted_on_original_{seed}_{i}_{num_inference_steps}_{guidance_scale}.png"))
+    inpainted_image = inpaint_pipe(
+        prompt=prompt,
+        image=image,
+        mask_image=expanded_keypoints_masks.convert('RGB'),
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        height=image.height,
+        width=image.width,
+        num_images_per_prompt=num_images_per_prompt,
+        generator=torch.Generator().manual_seed(seed)
+    ).images[0]
+    inpainted_image.save(os.path.join(output_path, f"{name}_inpainted_{seed}_{num_inference_steps}_{guidance_scale}.png"))
+    # Paste the inpainted image on the original image according to the expanded mask
+    paste_image = image.copy()
+    paste_image.paste(inpainted_image, (0, 0), expanded_keypoints_masks)
+    final_image_path = os.path.join(output_path, f"{name}_inpainted_on_original_{seed}_{num_inference_steps}_{guidance_scale}.png")
+    paste_image.save(final_image_path)
+    return final_image_path
