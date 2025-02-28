@@ -1,5 +1,5 @@
 """
-Extract keyframe following the steps:
+Extract and deblur keyframe following the steps:
     1. Get key_frame_id from video_info.json
     2. Get key_frame_image from task_dir/3_face_fusion/facefusion/mimic_motion_upscaled/{key_frame_id + 1:8d}.png
     3. Copy key_frame_image to task_dir/4_keyframe/keyframe_origin.png
@@ -14,9 +14,7 @@ import shutil
 from pathlib import Path
 import argparse
 import logging
-import subprocess
 from typing import List
-import tempfile
 import random
 
 from common.constant import TASK_DIR, VIDEO_DIR, MANUAL_DIR
@@ -26,16 +24,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(line
 logger = logging.getLogger(__name__)
 
 
-def deblur_keyframes(keyframe_paths: List[Path]) -> None:
-    for keyframe_path in keyframe_paths:
-        task_dir = keyframe_path.parent.parent
-        video_id, character_id = task_dir.name, task_dir.parent.name
-        output_dir = MANUAL_DIR / "keyframe_deblur_selection" / f"{character_id}_{video_id}"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        for i in range(20):
-            seed = random.randint(0, 1000000)
-            deblur_image(keyframe_path, output_dir / f"deblur_{i}_{seed}.png", seed=seed)
-
+def deblur_keyframe(keyframe_path: Path) -> None:
+    task_dir = keyframe_path.parent.parent
+    video_id, character_id = task_dir.name, task_dir.parent.name
+    output_dir = MANUAL_DIR / "keyframe_deblur_selection" / f"{character_id}_{video_id}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(20):
+        seed = random.randint(0, 1000000)
+        deblur_image(keyframe_path, output_dir / f"deblur_{i}_{seed}.png", seed=seed)
 
 def extract_keyframe(task_dir: str, character_id: str, video_id: str, skip_if_exists: bool = True) -> None:
     tasks = []
@@ -73,11 +69,9 @@ def extract_keyframe(task_dir: str, character_id: str, video_id: str, skip_if_ex
                 logger.info(f"Key frame image not found: {video_dir}")
                 continue
 
+            logger.info(f"Deblurring keyframe: {key_frame_image}")
             shutil.copy(key_frame_image, output_dir / "keyframe_origin.png")
-            collected_keyframes.append(output_dir / "keyframe_origin.png")
-    if collected_keyframes:
-        logger.info(f"Deblurring {len(collected_keyframes)} keyframes")
-        deblur_keyframes(collected_keyframes)
+            deblur_keyframe(output_dir / "keyframe_origin.png")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
