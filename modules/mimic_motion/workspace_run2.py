@@ -49,8 +49,8 @@ def gen_mimic_motion_conf(
         output_dir = task / "5_mimic_motion"
         test_case = {
             "video_pose_dir": str(VIDEO_DIR / video_id / "poses"),
-            "ref_image_path": str(input_dir / "keyframe_repaired.png"),
-            "ref_pose_path": str(input_dir / "keyframe_repaired_pose.json"),
+            "ref_image_path": str(input_dir / "keyframe_repair.png"),
+            "ref_pose_path": str(input_dir / "keyframe_repair_pose.json"),
             "output_path": str(output_dir / "mimic_motion.mp4"),
             "num_frames": num_frames,
             "resolution": resolution,
@@ -128,13 +128,13 @@ def main(
         for video_dir in candidate_videos:
             input_dir = video_dir / "4_keyframe"
             output_dir = video_dir / "5_mimic_motion"
-            if not (input_dir / "keyframe_repaired.png").exists():
+            if not (input_dir / "keyframe_repair.png").exists():
                 logger.info(f"Invalid task: {video_dir}")
                 continue
-            pose_file = input_dir / "keyframe_repaired_pose.json"
+            pose_file = input_dir / "keyframe_repair_pose.json"
             if not pose_file.exists():
                 logger.info(f"Pose file not found: {pose_file}, detecting pose")
-                sapiens_detect(input_dir / "keyframe_repaired.png", pose_file)
+                sapiens_detect(input_dir / "keyframe_repair.png", pose_file)
             if skip_if_exists and output_dir.exists():
                 logger.info(f"Task {output_dir} already exists, skipping")
                 continue

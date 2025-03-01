@@ -34,7 +34,7 @@ def repair_keyframe(input_file: Path, output_dir: Path) -> None:
     video_id = task_dir.name
     character_id = task_dir.parent.name
     output_dir = MANUAL_DIR / "keyframe_repair_selection" / f"{character_id}_{video_id}"
-    output_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     video_info_path = VIDEO_DIR / video_id / "video_info.json"
     with open(video_info_path, "r") as f:
@@ -42,7 +42,7 @@ def repair_keyframe(input_file: Path, output_dir: Path) -> None:
     repair_parts = video_info.get("repair_parts", "hands")
     mask_padding = video_info.get("mask_padding", 10)
     foot_mask_padding = video_info.get("foot_mask_padding", mask_padding)
-    hand_prompt = video_info.get("hand_repair_prompt", "detailed high-resolution hands, clear skin texture, realistic fingers and joints, natural hand pose, photo realistic hands with fine details, proper fingers proportions")
+    hand_prompt = video_info.get("hand_repair_prompt", "perfect hands, natural hand pose")
     foot_prompt = video_info.get("foot_repair_prompt", "detailed high-resolution shoes, clear shoes texture, realistic footwear, sharp edges, photorealistic shoes with fine details")
     repair_parts = [part.strip() for part in repair_parts.split(",")]
     hands_parts = [part for part in repair_parts if part in ["hands", "left_hand", "right_hand"]]
@@ -58,8 +58,7 @@ def repair_keyframe(input_file: Path, output_dir: Path) -> None:
             parts_str,
             mask_padding=mask_padding,
             prompt=hand_prompt,
-            seed=seed,
-            target_height=512
+            seed=seed
         )
         if feet_parts:
             parts_str = ",".join(feet_parts)
@@ -71,8 +70,7 @@ def repair_keyframe(input_file: Path, output_dir: Path) -> None:
                 parts_str,
                 mask_padding=foot_mask_padding,
                 prompt=foot_prompt,
-                seed=seed,
-                target_height=512
+                seed=seed
             )
 
 def _run_tasks_on_gpu(gpu_id, gpu_tasks):

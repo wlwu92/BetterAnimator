@@ -409,7 +409,8 @@ def flux_pipe(lora_name: str = "", enable_multi_gpu: bool = False) -> FluxPipeli
     )
     if lora_name:
         pipe.load_lora_weights(lora_name)
-    pipe.enable_model_cpu_offload()
+    # pipe.enable_model_cpu_offload()
+    pipe.to("cuda")
     return pipe
 
 
@@ -422,7 +423,8 @@ def flux_img2img_pipe(lora_name: str = "", enable_multi_gpu: bool = False) -> Fl
     )
     if lora_name:
         pipe.load_lora_weights(lora_name)
-    pipe.enable_model_cpu_offload()
+    # pipe.enable_model_cpu_offload()
+    pipe.to("cuda")
     return pipe
 
 def flux_fill_pipe(
@@ -474,5 +476,6 @@ def flux_fill_pipe(
         )
         if lora_name:
             pipe.load_lora_weights(lora_name)
-        pipe.enable_model_cpu_offload()
+        # pipe.enable_model_cpu_offload()
+        pipe.to("cuda")
     return pipe
