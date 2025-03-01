@@ -8,12 +8,16 @@ Repair keyframe following the steps:
 """
 
 import json
-import shutil
 from pathlib import Path
 import argparse
 import logging
-from typing import List
+from typing import List, Tuple
 import random
+import multiprocessing
+import torch
+from concurrent.futures import ProcessPoolExecutor
+
+multiprocessing.set_start_method('spawn', force=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(filename)s:%(lineno)s][%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -38,7 +42,7 @@ def repair_keyframe(input_file: Path, output_dir: Path) -> None:
     repair_parts = video_info.get("repair_parts", "hands")
     mask_padding = video_info.get("mask_padding", 10)
     foot_mask_padding = video_info.get("foot_mask_padding", mask_padding)
-    hand_prompt = video_info.get("hand_repair_prompt", "Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand")
+    hand_prompt = video_info.get("hand_repair_prompt", "detailed high-resolution hands, clear skin texture, realistic fingers and joints, natural hand pose, photo realistic hands with fine details, proper fingers proportions")
     foot_prompt = video_info.get("foot_repair_prompt", "detailed high-resolution shoes, clear shoes texture, realistic footwear, sharp edges, photorealistic shoes with fine details")
     repair_parts = [part.strip() for part in repair_parts.split(",")]
     hands_parts = [part for part in repair_parts if part in ["hands", "left_hand", "right_hand"]]
@@ -54,19 +58,45 @@ def repair_keyframe(input_file: Path, output_dir: Path) -> None:
             parts_str,
             mask_padding=mask_padding,
             prompt=hand_prompt,
-            seed=seed
+            seed=seed,
+            target_height=512
         )
-        parts_str = ",".join(feet_parts)
-        logger.info(f"Repairing feet parts: {parts_str}, mask padding: {foot_mask_padding}, prompt: {foot_prompt}, seed: {seed}")
-        repaired_image = repair_by_pose_parts(
-            repaired_image,
-            pose_file,
-            output_dir,
-            parts_str,
-            mask_padding=foot_mask_padding,
-            prompt=foot_prompt,
-            seed=seed
-        )
+        if feet_parts:
+            parts_str = ",".join(feet_parts)
+            logger.info(f"Repairing feet parts: {parts_str}, mask padding: {foot_mask_padding}, prompt: {foot_prompt}, seed: {seed}")
+            repaired_image = repair_by_pose_parts(
+                repaired_image,
+                pose_file,
+                output_dir,
+                parts_str,
+                mask_padding=foot_mask_padding,
+                prompt=foot_prompt,
+                seed=seed,
+                target_height=512
+            )
+
+def _run_tasks_on_gpu(gpu_id, gpu_tasks):
+    with torch.cuda.device(gpu_id):
+        logger.info(f"GPU {gpu_id} processing {len(gpu_tasks)} tasks")
+        for video_dir, input_file in gpu_tasks:
+            character_id = video_dir.parent.name
+            video_id = video_dir.name
+            output_dir = MANUAL_DIR / "keyframe_repair_selection" / f"{character_id}_{video_id}"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Repairing keyframe for task: {video_dir}")
+            repair_keyframe(input_file, output_dir)
+
+def batch_run(tasks: List[Tuple[Path, Path]]) -> None:
+    num_tasks = len(tasks)
+    logger.info(f"Found {num_tasks} tasks")
+    num_gpus = torch.cuda.device_count()
+    logger.info(f"Number of available GPUs: {num_gpus}")
+    with ProcessPoolExecutor(max_workers=num_gpus) as executor:
+        tasks_per_gpu = [tasks[i::num_gpus] for i in range(num_gpus)] 
+        futures = [executor.submit(_run_tasks_on_gpu, gpu_id, gpu_tasks) 
+                    for gpu_id, gpu_tasks in enumerate(tasks_per_gpu) if gpu_tasks]
+        for future in futures:
+            future.result()
 
 def main(task_dir: str, character_id: str, video_id: str, skip_if_exists: bool = True) -> None:
     tasks = []
@@ -77,6 +107,7 @@ def main(task_dir: str, character_id: str, video_id: str, skip_if_exists: bool =
         character_id = task_dir.parent.name
     candidate_characters = sorted(TASK_DIR.glob("*")) \
         if not character_id else [TASK_DIR / character_id]
+    repair_tasks = []
     for character_dir in candidate_characters:
         candidate_videos = sorted(character_dir.glob("*")) \
             if not video_id else [character_dir / video_id]
@@ -96,13 +127,14 @@ def main(task_dir: str, character_id: str, video_id: str, skip_if_exists: bool =
                 logging.info(f"Repairing task already exists: {output_dir}")
                 continue
             logger.info(f"Repairing keyframe: {video_dir}")
-            repair_keyframe(input_file, output_dir)
+            repair_tasks.append((video_dir, input_file))
+    batch_run(repair_tasks)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_dir", type=str, required=False)
     parser.add_argument("--character_id", type=str, required=False)
     parser.add_argument("--video_id", type=str, required=False)
-    parser.add_argument("--skip_if_exists", type=bool, default=True)
+    parser.add_argument("--skip_if_exists", action="store_true", help="Skip if the repairing task already exists")
     args = parser.parse_args()
     main(args.task_dir, args.character_id, args.video_id, args.skip_if_exists)
