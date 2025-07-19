@@ -1,26 +1,43 @@
 #!/bin/bash
 WORKSPACE_ROOT="data/workspace"
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <video_path>"
+# Check arguments
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    echo "Usage: $0 <video_path> [id]"
+    echo "  video_path: Path to the video file"
+    echo "  id: Optional custom id (6-digit format, e.g., 000001). If not provided, auto-generated"
     exit 1
 fi
 
 video_path=$1
+custom_id=$2
 VIDEOS_DIR="${WORKSPACE_ROOT}/videos"
-MAX_ID=$(ls ${VIDEOS_DIR} | tail -n 1)
-if [ -z "${MAX_ID}" ]; then
-    NEW_ID="000000"
+
+# Determine the id to use
+if [ -n "${custom_id}" ]; then
+    # Use custom id if provided
+    NEW_ID=${custom_id}
+    echo "Using custom id: ${NEW_ID}"
 else
-    NEW_ID=$(printf "%06d" $((MAX_ID + 1)))
+    # Auto-generate id
+    MAX_ID=$(ls ${VIDEOS_DIR} 2>/dev/null | tail -n 1)
+    if [ -z "${MAX_ID}" ]; then
+        NEW_ID="000000"
+    else
+        NEW_ID=$(printf "%06d" $((MAX_ID + 1)))
+    fi
+    echo "Auto-generated id: ${NEW_ID}"
 fi
+
+# Check if video with this id already exists
+if [ -d "${VIDEOS_DIR}/${NEW_ID}" ]; then
+    echo "Video with id ${NEW_ID} already exists, skipping..."
+    exit 0
+fi
+
 echo "Adding video to workspace with id ${NEW_ID}"
 
 # Add video to workspace
-if [ -d "${VIDEOS_DIR}/${NEW_ID}" ]; then
-    echo "Video with id ${NEW_ID} already exists"
-    exit 1
-fi
 mkdir -p ${VIDEOS_DIR}/${NEW_ID}
 DST_VIDEO_PATH="${VIDEOS_DIR}/${NEW_ID}/video.mp4"
 cp ${video_path} ${DST_VIDEO_PATH}

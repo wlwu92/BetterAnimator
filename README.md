@@ -55,6 +55,27 @@ export PYTORCH_ENABLE_MPS_FALLBACK=1
 bash scripts/download_models.sh
 ```
 
+## Run
+
+```shell
+# 1. add video and extract pose and gen tasks
+REFERENCE_DIR=data/workspace/tmp/20250719/references
+CHARACTERS=(000001 000006 000020)
+for i in `ls ${REFERENCE_DIR}/*`; do
+    ID=$(basename $i .mp4)
+    bash pipelines/0_add_video.sh $i $ID
+    bash pipelines/1_pose_estimation.sh data/workspace/videos/${ID}/frames data/workspace/videos/${ID}/poses
+    for C_ID in $CHARACTERS; do
+        python modules/mimic_motion/match_character_scale.py --video_id $ID --character_id $C_ID
+    done
+done  
+# 2. Run mimic motion
+python modules/mimic_motion/workspace_run.py
+# 3. Run face fusion
+python modules/face_fusion/workspace_run.py
+# 4. Run diffutoon
+python modules/diffutoon/workspace_run.py
+```
 
 
 ## References
